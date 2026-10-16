@@ -231,3 +231,16 @@ it("keeps env identity and separate contexts while draining nested background wo
   expect(completed).toHaveLength(2);
   expect(errors).toHaveBeenCalledTimes(2);
 });
+
+it("prefers a callable object's fetch method over treating it as a factory", async () => {
+  const callable = vi.fn(() => {
+    throw new Error("not a factory");
+  });
+  const worker = Object.assign(callable, {
+    fetch: vi.fn(() => new Response("ok")),
+  });
+  runtime = capacitorWorkers({ worker, baseURL: "https://test/api" });
+  expect(await (await fetch("https://test/api")).text()).toBe("ok");
+  expect(callable).not.toHaveBeenCalled();
+  expect(worker.fetch).toHaveBeenCalledOnce();
+});

@@ -29,11 +29,11 @@ workerd's [README](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15e
 - HEAD drops and cancels a handler's returned body while retaining status/headers. Error responses and used/locked bodies reject.
 - Tests cover env identity, per-invocation contexts, nested background tasks and delegation of untouched Request objects.
 
-## Most important remaining runtime gap
+## Historical gap before isolated mode (still applies to direct mode)
 
-UI and Worker code currently see the same patched global fetch. Worker subrequests inside the configured interception boundary re-enter the local handler and may recurse. Outside requests use WebView networking, including browser CORS/cookie behavior. This differs from workerd's outbound I/O channels.
+Before isolated mode, UI and Worker code saw the same patched global fetch. This remains true only for direct handler imports. Worker subrequests inside the configured interception boundary re-enter the local handler and may recurse. Outside requests use WebView networking, including browser CORS/cookie behavior. This differs from workerd's outbound I/O channels.
 
-Temporarily restoring global fetch while a handler runs would break concurrent UI requests and background work. A dedicated Web Worker is a candidate for separating globals, but needs a module entrypoint and Request/Response transport, including streams, aborts and errors. It is not a workerd isolate. Target WebView support and behavior must be measured before adopting it. This PR includes an isolated demo experiment, not a public runtime replacement.
+Temporarily restoring global fetch while a handler runs would break concurrent UI requests and background work. The investigation therefore evaluated a dedicated Web Worker to separate globals, requiring a module entrypoint and Request/Response transport, including streams, aborts and errors. It is not a workerd isolate. The experiment measured target WebView support before adoption. The subsequent Library integration section describes the implemented isolated mode.
 
 ## Dedicated Web Worker experiment
 
@@ -139,7 +139,7 @@ Internal lifecycle counts are not a public API. Real MessageChannel unit tests c
 
 | Check | Result |
 | --- | --- |
-| Library typecheck/build and unit tests | Passed; 25 tests |
+| Library typecheck/build and unit tests | Passed; 30 tests |
 | Demo typecheck | Passed |
 | Packed npm consumer | Direct 26/26, isolated 22/22; public query-import types checked, no source aliases or copied transport |
 | Chromium/WebKit production isolated suites | 22 tests passed |
@@ -152,3 +152,11 @@ Internal lifecycle counts are not a public API. Real MessageChannel unit tests c
 Native evidence is in local ignored `demo/artifacts/native-library-{ios26,android}.{log,json,png}`; screenshots and JSON were inspected. Normal demo assets/config were restored. Native outbound testing still uses bundled fixtures, not external network/CORS; physical devices, iOS 26.0 and a new iOS 27 run were not tested. Public-package integration is established for these cases, not complete Workers compatibility. No npm publication or cloud deployment was performed.
 
 The next step is a small native binding bridge and a first KV contract, with upload streaming and wider API compatibility kept separate.
+
+### PR review corrections
+
+Calls are registered before startup and upload buffering, so disposal or worker failure also rejects calls that have not yet been sent. A paused upload is read through a cancellable reader; stopping the call cancels that reader without waiting for the source's cancel promise, settles background tracking and closes unsent ports. Regression tests cover disposal, worker failure and abort during a paused upload, as well as disposal during startup.
+
+A callable object with a fetch method retains the direct-handler contract. Only functions without that method are treated as Worker factories. This preserves compatibility with existing callable handlers. Earlier shared-fetch statements above are explicitly historical/direct-mode limitations.
+
+After these corrections, 30 unit tests, 22 isolated browser tests, 4 direct browser tests and the packed consumer (26 direct / 22 isolated checks) passed. The existing native suites passed 28/28 again on iOS 26.1 and Android 16; local evidence is saved as `demo/artifacts/native-review-{ios26,android}.{log,json,png}`. The new paused-upload regressions are unit tests, not additional native cases.

@@ -209,3 +209,64 @@ it("reports response reconstruction failure and releases the call", async () => 
   await Promise.all(background);
   expect(isolated.activeCalls).toBe(0);
 });
+
+it.each(["dispose", "crash", "abort"] as const)(
+  "settles a paused upload and cancels its source on %s",
+  async (action) => {
+    const fetchHandler = vi.fn(() => new Response("unexpected"));
+    const { client, isolated, ctx, pending } = setup({ fetch: fetchHandler });
+    const cancel = vi.fn(() => new Promise<void>(() => {}));
+    const controller = new AbortController();
+    const request = new Request("https://test/api", {
+      method: "POST",
+      body: new ReadableStream<Uint8Array>({
+        start(stream) {
+          stream.enqueue(new Uint8Array([1]));
+        },
+        cancel,
+      }),
+      signal: controller.signal,
+      duplex: "half",
+    } as RequestInit);
+    const outcome = Promise.resolve(
+      isolated.handler.fetch(request, {}, ctx),
+    ).then(
+      () => "unexpected",
+      (error) => String(error),
+    );
+    await vi.waitFor(() => expect(request.body!.locked).toBe(true));
+    if (action === "dispose") isolated.dispose();
+    else if (action === "crash")
+      client.onerror!({ message: "worker crashed", preventDefault() {} });
+    else controller.abort();
+    expect(await outcome).toMatch(/disposed|crashed|abort/i);
+    await Promise.all(pending);
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(isolated.activeCalls).toBe(0);
+    expect(fetchHandler).not.toHaveBeenCalled();
+  },
+);
+
+it("tracks a call waiting for startup and releases it on disposal", async () => {
+  const worker = { postMessage: vi.fn(), terminate: vi.fn() };
+  const isolated = createIsolatedWorker(worker as unknown as Worker);
+  cleanups.push(isolated.dispose);
+  const pending: Promise<unknown>[] = [];
+  const result = isolated.handler.fetch(
+    new Request("https://test/api"),
+    {},
+    {
+      props: {},
+      passThroughOnException() {},
+      waitUntil(p) {
+        pending.push(p);
+      },
+    },
+  );
+  expect(isolated.activeCalls).toBe(1);
+  isolated.dispose();
+  await expect(result).rejects.toThrow("disposed");
+  await Promise.all(pending);
+  expect(isolated.activeCalls).toBe(0);
+  expect(worker.postMessage).not.toHaveBeenCalled();
+});

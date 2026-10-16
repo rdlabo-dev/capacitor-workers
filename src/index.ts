@@ -46,10 +46,9 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
       "baseURL must be an HTTP(S) URL without credentials, query or fragment.",
     );
   }
-  if (
-    typeof options.worker !== "function" &&
-    typeof options.worker?.fetch !== "function"
-  )
+  const hasFetch =
+    typeof (options.worker as WorkerHandler<Env>)?.fetch === "function";
+  if (!hasFetch && typeof options.worker !== "function")
     throw new TypeError("worker.fetch is required.");
   const boundary = base.pathname.replace(/\/+$/, "");
   const original = globalThis.fetch;
@@ -59,7 +58,7 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
   const pending = new Set<Promise<void>>();
   const env = options.env ?? ({} as Env);
   const isolated =
-    typeof options.worker === "function"
+    !hasFetch && typeof options.worker === "function"
       ? createIsolatedWorker<Env>(options.worker())
       : undefined;
   const handler = isolated?.handler ?? (options.worker as WorkerHandler<Env>);
