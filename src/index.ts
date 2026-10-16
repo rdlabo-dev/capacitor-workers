@@ -47,14 +47,7 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
     installed = false;
     throw error;
   }
-  const previousRendering = documents ? undefined : clearPreviousRendering();
-  const ready = (
-    documents?.ready ??
-    Promise.allSettled([runtime.ready, previousRendering]).then((results) => {
-      for (const result of results)
-        if (result.status === "rejected") throw result.reason;
-    })
-  ).catch((error) => {
+  const releaseInstallation = (error: unknown): never => {
     if (!disposed) {
       runtime.dispose();
       if (globalThis.fetch === runtime.fetch) globalThis.fetch = original;
@@ -62,7 +55,22 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
       disposed = true;
     }
     throw error;
-  });
+  };
+  const previousRendering = documents
+    ? undefined
+    : clearPreviousRendering()?.catch(releaseInstallation);
+  // Fetch-only startup failures remain installed and reject local requests until
+  // explicitly disposed. Only document setup/migration failures roll back setup.
+  const ready = documents
+    ? documents.ready.catch(releaseInstallation)
+    : previousRendering
+      ? Promise.allSettled([runtime.ready, previousRendering]).then(
+          (results) => {
+            for (const result of results)
+              if (result.status === "rejected") throw result.reason;
+          },
+        )
+      : runtime.ready;
   let disposal: Promise<void> | undefined;
   return {
     ready,

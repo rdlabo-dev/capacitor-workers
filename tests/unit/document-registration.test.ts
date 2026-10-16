@@ -120,3 +120,40 @@ it("keeps the installation lock until a pending migration finishes", async () =>
   await next.ready;
   await next.dispose();
 });
+
+it.each(["web", "android"])(
+  "%s Fetch-only startup failure keeps local requests from escaping to native fetch",
+  async (platform) => {
+    const s = setup();
+    vi.stubGlobal("Capacitor", { getPlatform: () => platform });
+    const nativeFetch = vi.fn(async () => new Response("network"));
+    vi.stubGlobal("fetch", nativeFetch);
+    const failure = new Error("Worker startup failed");
+    const app = capacitorWorkers({
+      baseURL: "https://worker.example/api",
+      prefer: "direct",
+      worker: {
+        createWorker: () => {
+          throw new Error("Not selected");
+        },
+        loadDirect: async () => {
+          throw failure;
+        },
+      },
+    });
+    try {
+      await expect(app.ready).rejects.toBe(failure);
+      for (let i = 0; i < 2; i++)
+        await expect(fetch("https://worker.example/api/echo")).rejects.toBe(
+          failure,
+        );
+      await app.drain();
+      expect(nativeFetch).not.toHaveBeenCalled();
+      if (platform === "android")
+        expect(s.registration.unregister).toHaveBeenCalledOnce();
+    } finally {
+      await app.dispose();
+    }
+    expect(fetch).toBe(nativeFetch);
+  },
+);
