@@ -80,7 +80,7 @@ it("runs the same state and engine contracts against actual workerd KV and WebAs
   ).json()) as ContractResult[];
   expect(reports).toHaveLength(2);
   for (const report of reports) assertContract(report);
-  expect(reports.map((report) => report.cases.length)).toEqual([6, 2]);
+  expect(reports.map((report) => report.cases.length)).toEqual([16, 2]);
   expect(
     reports
       .flatMap((report) => report.cases)
@@ -102,3 +102,19 @@ it("runs the unchanged KV handler against a real Workers binding", async () => {
   }
   expect((await services.fetch(path)).status).toBe(404);
 });
+
+it("expires actual workerd KV values, metadata and list entries after the minimum TTL", async () => {
+  expect((await services.fetch("/expiration", { method: "PUT" })).status).toBe(
+    204,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 61_000));
+  const result = (await (await services.fetch("/expiration")).json()) as {
+    value: unknown;
+    metadata: { value: unknown; metadata: unknown };
+    listing: { keys: unknown[] };
+  };
+  expect(result.value).toBeNull();
+  expect(result.metadata.value).toBeNull();
+  expect(result.metadata.metadata).toBeNull();
+  expect(result.listing.keys).toEqual([]);
+}, 75_000);

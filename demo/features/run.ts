@@ -4,7 +4,7 @@ import { assertContract, runContract } from "@rdlabo/capacitor-workers/testing";
 import worker from "../workers/features/fetch";
 import isolated from "../workers/features/fetch?capacitor-worker";
 import { fetchContract } from "@rdlabo/capacitor-workers/testing/fetch";
-import { kvTextContract } from "@rdlabo/capacitor-workers/testing/kv";
+import { kvContract } from "@rdlabo/capacitor-workers/testing/kv";
 import { wasmContract } from "./contracts";
 import { PersistentText, WasmValidation } from "./implementations";
 export async function runFeatures() {
@@ -25,7 +25,7 @@ export async function runFeatures() {
   }
   reports.push({
     environment: "webview",
-    ...(await runContract(new PersistentText(), kvTextContract)),
+    ...(await runContract(new PersistentText(), kvContract)),
   });
   reports.push({
     environment: "webview",

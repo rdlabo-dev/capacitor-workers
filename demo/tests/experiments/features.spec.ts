@@ -5,7 +5,7 @@ test("one feature standard covers direct/isolated fetch, state and engine capabi
   await page.goto("/");
   await page.waitForFunction(() => typeof window.runFeatures === "function");
   const reports = await page.evaluate(() => window.runFeatures());
-  expect(reports.map((report) => report.cases.length)).toEqual([4, 4, 6, 2]);
+  expect(reports.map((report) => report.cases.length)).toEqual([4, 4, 16, 2]);
   expect(
     reports
       .flatMap((report) => report.cases)

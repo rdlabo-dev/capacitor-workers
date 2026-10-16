@@ -39,4 +39,32 @@ export async function verifyKVPersistence() {
   } finally {
     await kvRequest(namespace, "DELETE");
   }
+  const first = await openFeature(new LocalStorageKV(namespace));
+  try {
+    await first.api.put("binary", new Uint8Array([0, 255]), {
+      metadata: { version: 1 },
+      expirationTtl: 120,
+    });
+  } finally {
+    await first.dispose();
+  }
+  const second = await openFeature(new LocalStorageKV(namespace));
+  try {
+    const stored = await second.api.getWithMetadata<{ version: number }>(
+      "binary",
+      "arrayBuffer",
+    );
+    const listed = await second.api.list();
+    if (
+      JSON.stringify([...new Uint8Array(stored.value!)]) !== "[0,255]" ||
+      stored.metadata?.version !== 1 ||
+      !listed.keys[0]?.expiration
+    )
+      throw new Error(
+        "KV did not persist bytes, metadata and expiration together",
+      );
+  } finally {
+    await second.api.delete("binary");
+    await second.dispose();
+  }
 }

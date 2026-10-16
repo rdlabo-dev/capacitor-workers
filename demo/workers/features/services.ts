@@ -1,15 +1,29 @@
 import kvWorker from "./kv";
 import { runContract } from "@rdlabo/capacitor-workers/testing";
-import { kvTextContract } from "@rdlabo/capacitor-workers/testing/kv";
-import type { KVTextNamespace } from "@rdlabo/capacitor-workers/features/kv";
+import { kvContract } from "@rdlabo/capacitor-workers/testing/kv";
+import type { KVNamespace } from "@rdlabo/capacitor-workers/features/kv";
 import { wasmContract } from "../../features/contracts";
 import { WorkersText, WasmValidation } from "../../features/implementations";
 export default {
-  async fetch(_request: Request, env: { TEXT: KVTextNamespace }) {
+  async fetch(_request: Request, env: { TEXT: KVNamespace }) {
+    if (new URL(_request.url).pathname === "/expiration") {
+      if (_request.method === "PUT") {
+        await env.TEXT.put("expires", "value", {
+          expirationTtl: 60,
+          metadata: { test: true },
+        });
+        return new Response(null, { status: 204 });
+      }
+      return Response.json({
+        value: await env.TEXT.get("expires"),
+        metadata: await env.TEXT.getWithMetadata("expires"),
+        listing: await env.TEXT.list({ prefix: "expires" }),
+      });
+    }
     if (new URL(_request.url).pathname === "/kv")
       return kvWorker.fetch(_request, { KV: env.TEXT });
     return Response.json([
-      await runContract(new WorkersText(env.TEXT), kvTextContract),
+      await runContract(new WorkersText(env.TEXT), kvContract),
       await runContract(new WasmValidation(), wasmContract),
     ]);
   },

@@ -4,6 +4,11 @@ import { openFeature } from "../../src/features/index";
 function storage() {
   const data = new Map<string, string>();
   return {
+    get length() {
+      return data.size;
+    },
+    key: (index: number) => [...data.keys()][index] ?? null,
+    clear: () => data.clear(),
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => {
       data.set(key, value);
@@ -28,17 +33,20 @@ it("preserves data across scopes and implementations without crossing namespaces
   await next.dispose();
   await other.dispose();
 });
-it("rejects unsupported options and values without modifying saved data", async () => {
+it("rejects invalid inputs without modifying saved data", async () => {
   const api = new LocalStorageKV("test", storage()).create();
   await api.put("key", "original");
-  // @ts-expect-error TTL is outside this profile, never silently ignored.
-  await expect(api.put("key", "new", { expirationTtl: 60 })).rejects.toThrow(
-    "without options",
+  await expect(api.put("key", "new", { expirationTtl: 59 })).rejects.toThrow(
+    "60",
   );
-  // @ts-expect-error JSON reads are outside this profile.
-  await expect(api.get("key", "json")).rejects.toThrow("without options");
-  // @ts-expect-error Binary writes are outside this profile.
-  await expect(api.put("key", new ArrayBuffer(1))).rejects.toThrow("string");
+  // @ts-expect-error Unknown options cannot be silently ignored.
+  await expect(api.put("key", "new", { unknown: true })).rejects.toThrow(
+    "Unsupported",
+  );
+  // @ts-expect-error Bulk streaming is unsupported by Workers KV.
+  await expect(api.get(["key"], "stream")).rejects.toThrow(
+    "only text and json",
+  );
   expect(await api.get("key")).toBe("original");
 });
 it("enforces key byte limits and preserves prototype-like keys", async () => {
@@ -92,7 +100,7 @@ it("rejects oversized writes before changing storage", async () => {
 });
 
 it("runs the reusable contract against implementations and detects lost writes", async () => {
-  const { kvTextContract } = await import("../../src/testing/kv");
+  const { kvContract } = await import("../../src/testing/kv");
   const { runContract, assertContract } =
     await import("../../src/features/testing");
   class IsolatedKV extends LocalStorageKV {
@@ -103,17 +111,137 @@ it("runs the reusable contract against implementations and detects lost writes",
       return new LocalStorageKV("contract", storage()).create();
     }
   }
-  const passing = await runContract(new IsolatedKV(), kvTextContract);
+  const passing = await runContract(new IsolatedKV(), kvContract);
   assertContract(passing);
   expect(passing.cases.every((test) => test.status === "passed")).toBe(true);
   class LostWrites extends IsolatedKV {
     override create() {
-      return { ...super.create(), put: async () => {} };
+      const api = super.create();
+      api.put = async () => {};
+      return api;
     }
   }
-  const failing = await runContract(new LostWrites(), kvTextContract);
+  const failing = await runContract(new LostWrites(), kvContract);
   expect(failing.cases.find((test) => test.id === "roundtrip")?.status).toBe(
     "failed",
   );
   expect(() => assertContract(failing)).toThrow();
+});
+
+it("expires values and metadata at the boundary and omits expired list entries", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-16T00:00:00Z"));
+  try {
+    const backing = storage();
+    const api = new LocalStorageKV("ttl", backing).create();
+    await api.put("ttl", "value", { expirationTtl: 60, metadata: { tag: 1 } });
+    await api.put("absolute", "value", { expiration: Date.now() / 1000 + 60 });
+    await api.put("keep", "old", { expirationTtl: 60 });
+    await api.put("keep", "new");
+    vi.advanceTimersByTime(59_999);
+    expect(await api.get("ttl")).toBe("value");
+    vi.advanceTimersByTime(1);
+    const recreated = new LocalStorageKV("ttl", backing).create();
+    expect(await recreated.getWithMetadata("ttl")).toEqual({
+      value: null,
+      metadata: null,
+    });
+    expect(await recreated.get("absolute")).toBeNull();
+    expect((await recreated.list()).keys.map((k) => k.name)).toEqual(["keep"]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("snapshots metadata and byte views without retaining caller mutations", async () => {
+  const api = new LocalStorageKV("test", storage()).create();
+  const metadata = { tag: "original" };
+  const bytes = new Uint8Array([0, 1, 2, 3]);
+  await api.put("key", bytes.subarray(1, 3), { metadata });
+  bytes.fill(9);
+  metadata.tag = "changed";
+  const result = await api.getWithMetadata<{ tag: string }>(
+    "key",
+    "arrayBuffer",
+  );
+  expect([...new Uint8Array(result.value!)]).toEqual([1, 2]);
+  expect(result.metadata).toEqual({ tag: "original" });
+  result.metadata!.tag = "mutated";
+  expect((await api.getWithMetadata("key")).metadata).toEqual({
+    tag: "original",
+  });
+});
+it("rejects invalid limits, expiration, metadata and cache options before committing", async () => {
+  const api = new LocalStorageKV("test", storage()).create();
+  await api.put("key", "old");
+  for (const options of [
+    { expirationTtl: NaN },
+    { expirationTtl: 60.5 },
+    { expiration: 1 },
+    { metadata: "é".repeat(600) },
+    { metadata: 1n },
+  ]) {
+    await expect(api.put("key", "new", options)).rejects.toThrow();
+  }
+  for (const cacheTtl of [29, NaN, Infinity, 30.5])
+    await expect(api.get("key", { cacheTtl })).rejects.toThrow();
+  for (const limit of [0, 1001, 1.5])
+    await expect(api.list({ limit })).rejects.toThrow();
+  await expect(api.get(Array(101).fill("key"))).rejects.toThrow("100");
+  expect(await api.get("key")).toBe("old");
+});
+it("does not publish partial streams and cancels oversized input", async () => {
+  const api = new LocalStorageKV("test", storage()).create();
+  await api.put("key", "old");
+  const failure = new Error("source failure");
+  await expect(
+    api.put(
+      "key",
+      new ReadableStream({
+        start(c) {
+          c.error(failure);
+        },
+      }),
+    ),
+  ).rejects.toBe(failure);
+  const cancel = vi.fn();
+  const stream = new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(new Uint8Array(25 * 1024 * 1024 + 1));
+    },
+    cancel,
+  });
+  await expect(api.put("key", stream)).rejects.toThrow("25 MiB");
+  expect(cancel).toHaveBeenCalledOnce();
+  expect(stream.locked).toBe(false);
+  expect(await api.get("key")).toBe("old");
+});
+it("pages in UTF-8 order without skipping keys after deletion and binds cursors to namespaces", async () => {
+  const backing = storage();
+  const api = new LocalStorageKV("test", backing).create();
+  for (const key of ["a", "b", "c", "\uE000", "😀"])
+    await api.put(key, "value");
+  const first = await api.list({ limit: 1 });
+  if (first.list_complete) throw new Error("Expected cursor");
+  await api.delete("a");
+  expect(
+    (await api.list({ cursor: first.cursor })).keys.map((k) => k.name),
+  ).toEqual(["b", "c", "\uE000", "😀"]);
+  await expect(
+    new LocalStorageKV("other", backing)
+      .create()
+      .list({ cursor: first.cursor }),
+  ).rejects.toThrow("cursor");
+  await expect(api.list({ prefix: "a", cursor: first.cursor })).rejects.toThrow(
+    "cursor",
+  );
+  await expect(api.list({ cursor: "broken" })).rejects.toThrow("cursor");
+});
+it("distinguishes stored JSON null from a missing bulk metadata entry", async () => {
+  const api = new LocalStorageKV("test", storage()).create();
+  await api.put("null", "null", { metadata: false });
+  const results = await api.getWithMetadata(["null", "missing"], "json");
+  expect(results.get("null")).toEqual({ value: null, metadata: false });
+  expect(results.get("missing")).toBeNull();
+  // @ts-expect-error Null must not silently select a default limit.
+  await expect(api.list({ limit: null })).rejects.toThrow();
 });

@@ -64,11 +64,20 @@ class ExampleRuntime extends FetchRuntime<{ label: string }> {
 }
 import { defineFeature, FeatureImplementation, openFeature } from "@rdlabo/capacitor-workers/features";
 import { runContract, type ContractSuite } from "@rdlabo/capacitor-workers/testing";
-import { kvTextContract } from "@rdlabo/capacitor-workers/testing/kv";
+import { kvContract } from "@rdlabo/capacitor-workers/testing/kv";
 import { fetchContract, fetchContractWorker } from "@rdlabo/capacitor-workers/testing/fetch";
 import { LocalStorageKV } from "@rdlabo/capacitor-workers/features/kv";
 import { FetchImplementation } from "@rdlabo/capacitor-workers/features/fetch";
-void runContract(new LocalStorageKV("consumer-test"), kvTextContract);
+void runContract(new LocalStorageKV("consumer-test"), kvContract);
+const kv = new LocalStorageKV("consumer-test").create();
+const bytes: Promise<ArrayBuffer | null> = kv.get("key", "arrayBuffer");
+const json: Promise<{ value: number } | null> = kv.get<{ value: number }>("key", "json");
+const metadata: Promise<{ value: string | null; metadata: { tag: string } | null }> = kv.getWithMetadata<{ tag: string }>("key");
+// @ts-expect-error Workers bulk reads cannot return streams.
+void kv.get(["key"], "stream");
+// @ts-expect-error Write options are checked statically as well as at runtime.
+void kv.put("key", "value", { expirationTtl: "60" });
+
 void runContract(new FetchImplementation({ worker: fetchContractWorker, baseURL: "https://worker.invalid/api" }), fetchContract);
 // @ts-expect-error A KV implementation cannot use the HTTP contract.
 void runContract(new LocalStorageKV("consumer-test"), fetchContract);
@@ -193,7 +202,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
   }
   const features = await page.evaluate(() => window.runFeatures());
   if (
-    features.flatMap((report) => report.cases).length !== 16 ||
+    features.flatMap((report) => report.cases).length !== 26 ||
     features.some(
       (report) =>
         report.errors.length ||
@@ -211,7 +220,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     ),
   );
   console.log(
-    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 16/16 passed (${temp})`,
+    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 26/26 passed (${temp})`,
   );
 } finally {
   await browser?.close();

@@ -147,6 +147,6 @@ Fetch implementations extend `FetchRuntime` and share one contract suite. See [t
 
 The combined Hono + Express demo currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See `docs/verification.md` for measured results and limitations.
 
-### Local text KV
+### Local KV
 
-Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent text binding through `env` in direct execution. See [setup, supported operations and limits](docs/kv.md). The adapter implements a named subset, not the full Workers KV API.
+Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent KV binding through `env` in direct execution, including read modes, bulk reads, metadata, expiration and paginated listing. See [setup, supported operations and limits](docs/kv.md). The named contract is tested against local workerd; cloud replication and isolated binding RPC remain outside its scope.
