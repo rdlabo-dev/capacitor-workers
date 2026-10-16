@@ -80,10 +80,25 @@ it("runs the same state and engine contracts against actual workerd KV and WebAs
   ).json()) as ContractResult[];
   expect(reports).toHaveLength(2);
   for (const report of reports) assertContract(report);
-  expect(reports.map((report) => report.cases.length)).toEqual([3, 2]);
+  expect(reports.map((report) => report.cases.length)).toEqual([6, 2]);
   expect(
     reports
       .flatMap((report) => report.cases)
       .every((test) => test.status === "passed"),
   ).toBe(true);
+});
+
+it("runs the unchanged KV handler against a real Workers binding", async () => {
+  const path = `/kv?key=${crypto.randomUUID()}`;
+  try {
+    expect(
+      (await services.fetch(path, { method: "PUT", body: "saved 🍷" })).status,
+    ).toBe(204);
+    const response = await services.fetch(path);
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("saved 🍷");
+  } finally {
+    expect((await services.fetch(path, { method: "DELETE" })).status).toBe(204);
+  }
+  expect((await services.fetch(path)).status).toBe(404);
 });

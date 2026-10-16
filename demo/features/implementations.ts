@@ -1,3 +1,4 @@
+import { LocalStorageKV } from "@rdlabo/capacitor-workers/features/kv";
 import {
   FeatureImplementation,
   FeatureUnavailable,
@@ -5,27 +6,15 @@ import {
 } from "@rdlabo/capacitor-workers/features";
 import { textFeature, wasmFeature, type TextStore } from "./contracts";
 
-/** Test-only memory provider: no persistence or full KV compatibility claim. */
-export class MemoryText extends FeatureImplementation<typeof textFeature> {
+/** Test-owned persistent namespace, reset after each contract case. */
+export class PersistentText extends LocalStorageKV {
   constructor() {
-    super(textFeature, {
-      missing: { status: "supported" },
-      roundtrip: { status: "supported" },
-      delete: { status: "supported" },
-    });
+    super(`test-${crypto.randomUUID()}`);
   }
-  create(scope: FeatureScope): TextStore {
-    const data = new Map<string, string>();
-    scope.defer(() => data.clear());
-    return {
-      get: async (key) => data.get(key) ?? null,
-      put: async (key, value) => {
-        data.set(key, value);
-      },
-      delete: async (key) => {
-        data.delete(key);
-      },
-    };
+  override create(scope?: FeatureScope): TextStore {
+    const api = super.create();
+    scope?.defer(() => api.delete("key"));
+    return api;
   }
 }
 
@@ -33,6 +22,9 @@ export class MemoryText extends FeatureImplementation<typeof textFeature> {
 export class WorkersText extends FeatureImplementation<typeof textFeature> {
   constructor(private readonly kv: TextStore) {
     super(textFeature, {
+      overwrite: { status: "supported" },
+      empty: { status: "supported" },
+      deleteMissing: { status: "supported" },
       missing: { status: "supported" },
       roundtrip: { status: "supported" },
       delete: { status: "supported" },

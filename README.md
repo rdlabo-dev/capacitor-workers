@@ -146,3 +146,7 @@ Fetch implementations extend `FetchRuntime` and share one contract suite. See [t
 3. Expand setup automation, compatibility and browser/Electron/Tauri execution. Preserve the explicit `worker` + `baseURL` entry API.
 
 The combined Hono + Express demo currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See `docs/verification.md` for measured results and limitations.
+
+### Local text KV
+
+Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent text binding through `env` in direct execution. See [setup, supported operations and limits](docs/kv.md). The adapter implements a named subset, not the full Workers KV API.

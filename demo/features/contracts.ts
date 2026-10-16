@@ -1,3 +1,7 @@
+import {
+  kvTextFeature,
+  type KVTextNamespace,
+} from "@rdlabo/capacitor-workers/features/kv";
 import { defineFeature } from "@rdlabo/capacitor-workers/features";
 import { fetchFeature } from "@rdlabo/capacitor-workers/features/fetch";
 import type { ContractSuite } from "@rdlabo/capacitor-workers/testing";
@@ -51,17 +55,8 @@ export const fetchContract: ContractSuite<typeof fetchFeature> = {
     },
   },
 };
-/** Minimal text profile; does not describe full KV semantics or storage durability. */
-export interface TextStore {
-  get(key: string): Promise<string | null>;
-  put(key: string, value: string): Promise<void>;
-  delete(key: string): Promise<void>;
-}
-export const textFeature = defineFeature<TextStore>()("kv.text-basic", [
-  "missing",
-  "roundtrip",
-  "delete",
-]);
+export type TextStore = KVTextNamespace;
+export const textFeature = kvTextFeature;
 export const textContract: ContractSuite<typeof textFeature> = {
   feature: textFeature,
   cases: {
@@ -71,6 +66,19 @@ export const textContract: ContractSuite<typeof textFeature> = {
     async roundtrip(api) {
       await api.put("key", "日本語 🍷");
       equal(await api.get("key"), "日本語 🍷");
+    },
+    async overwrite(api) {
+      await api.put("key", "first");
+      await api.put("key", "second");
+      equal(await api.get("key"), "second");
+    },
+    async empty(api) {
+      await api.put("key", "");
+      equal(await api.get("key"), "");
+    },
+    async deleteMissing(api) {
+      await api.delete("key");
+      equal(await api.get("key"), null);
     },
     async delete(api) {
       await api.put("key", "value");

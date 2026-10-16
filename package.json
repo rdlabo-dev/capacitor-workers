@@ -30,6 +30,10 @@
     "./features/fetch": {
       "types": "./dist/features/fetch.d.ts",
       "import": "./dist/features/fetch.js"
+    },
+    "./features/kv": {
+      "types": "./dist/features/kv/index.d.ts",
+      "import": "./dist/features/kv/index.js"
     }
   },
   "scripts": {

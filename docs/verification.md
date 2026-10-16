@@ -93,3 +93,21 @@ Three profiles exercise the same machinery: portable HTTP behavior (direct and i
 The 41 native checks are the existing 28 plus 13 common cases (HTTP 4 × direct/isolated, text storage 3, engine 2). Native checks use bundled assets; logs, JSON reports and visually inspected screenshots are saved locally as `demo/artifacts/native-feature-standard-{ios26,android}.{log,json,png}`. These are simulator/emulator WebViews, not physical devices. The KV reference uses local workerd storage, not a production Cloudflare namespace. The memory provider is a nonpersistent verification fixture. Normal demo assets/configuration were restored after native testing. No npm publication or cloud deployment was performed.
 
 Manager review reproduced reentrant disposal from a synchronous abort listener. The host now establishes its shared disposal promise before notifying listeners. A regression test verifies promise identity and exactly-once asynchronous cleanup; all 74 root tests, typechecking and build pass. Native results above predate this focused lifecycle correction; native builds were not repeated for it.
+
+## Persistent text KV — 2026-10-16
+
+`feat/kv-text-storage` adds `LocalStorageKV` and the exported `kv.text.v1` profile. The demo memory fixture is replaced by a persistent Web Storage adapter. Six shared cases run against that adapter and actual local workerd KV. An unchanged HTTP Worker is separately exercised with both bindings. Application data survives feature disposal; test fixtures delete only their own data.
+
+| Check | Result |
+| --- | --- |
+| Library build, root/demo typecheck | Passed |
+| Root Vitest | 80/80; includes namespace/lifecycle persistence, unsupported options, UTF-8 key bounds, capacity/access errors, unavailable storage and oversized writes |
+| Local workerd | 26/26, including Hono/Express, six shared KV cases and KV HTTP handler |
+| Chromium/WebKit experiment | 26/26, including Hono/Express and document reload persistence/isolation/deletion |
+| Fresh tarball consumer | Direct 26/26, isolated 22/22, common feature cases 16/16 |
+| iOS 26.1 Simulator | 44/44 |
+| Android 16 emulator / WebView 134 | 44/44 |
+
+Native runs cover the existing 28 checks plus 16 common feature cases. Before those common cases, the runner also verifies writes through the KV Worker survive feature disposal/recreation. The document reload test was performed in Playwright Chromium/WebKit, not via native application restart. Native logs, JSON and inspected screenshots are local ignored files under `demo/artifacts/native-kv-{ios26,android}.*`. Native assets were restored to the ordinary demo configuration after testing. No physical device, cloud deployment or npm publication was involved.
+
+This is a direct-execution, default-text subset. TTL, metadata, listing, binary/JSON/stream modes, isolated binding RPC and cloud synchronization remain unimplemented. Storage limits and semantics are documented in [KV setup and scope](kv.md).
