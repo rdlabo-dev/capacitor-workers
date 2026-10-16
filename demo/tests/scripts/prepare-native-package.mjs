@@ -95,12 +95,38 @@ replaceProbe(
 replaceProbe(
   '    console.log("NATIVE_DOCUMENT_RESULT", JSON.stringify(result));',
   `
-    console.log("PACKAGED_RESULT", JSON.stringify({framework: result.framework, total: result.cases.length, failed: result.cases.filter(c => !c.passed)}));
-    if (result.cases.every(c => c.passed)) {
-      if (window.Capacitor.getPlatform() === "ios") localStorage.setItem("packaged-stop", "requested");
-      else window.Capacitor.nativePromise("CapacitorWorkers", "stop", {}).then(() => console.log("PACKAGED_STOP", "android native stop completed"));
-    }`,
+    console.log("PACKAGED_RESULT", JSON.stringify({framework: result.framework, total: result.cases.length, failed: result.cases.filter(c => !c.passed)}));`,
 );
+// The packaged lifecycle driver manages shutdown/relaunch stages itself; the
+// browser-suite Service Worker cleanup at the final step would unregister the
+// document transport mid-run.
+replaceProbe(
+  `      report();
+      if (location.protocol === "https:" && navigator.serviceWorker) {
+        for (const registration of await navigator.serviceWorker.getRegistrations())
+          await registration.unregister();
+      }`,
+  `      report();
+      packagedAfterReport(state.cases.every((c) => c.passed));`,
+);
+// The initial invocation is deferred: the appended driver's top-level bindings
+// initialize after this line is evaluated.
+replaceProbe(
+  `window.addEventListener("pageshow", (event) => {
+  if (event.persisted) runDocumentProbe();
+});
+runDocumentProbe();`,
+  `window.addEventListener("pageshow", (event) => {
+  if (event.persisted) packagedRun();
+});
+setTimeout(() => packagedRun(), 0);`,
+);
+probe +=
+  "\n" +
+  (await readFile(
+    join(repo, "demo/tests/fixtures/apps/packaged-native/probe-lifecycle.js"),
+    "utf8",
+  ));
 await writeFile(join(consumer, "public/probe.js"), probe);
 await writeFile(
   join(consumer, "capacitor.config.json"),
@@ -120,6 +146,23 @@ assert.equal(
   await realpath(join(consumer, "node_modules/@rdlabo/capacitor-workers")),
   join(consumer, "node_modules/@rdlabo/capacitor-workers"),
   "Must install tarball, not link repo",
+);
+// Bundle the installed package entry as a classic script so the Android
+// lifecycle stage can exercise Fetch-only migration from inside the rendered
+// document, the same checks as the historical CDP --lifecycle probe.
+const { build } = await import("esbuild");
+const lifecycle = await build({
+  entryPoints: [
+    join(consumer, "node_modules/@rdlabo/capacitor-workers/dist/index.js"),
+  ],
+  bundle: true,
+  format: "iife",
+  globalName: "DocumentLifecycleTest",
+  write: false,
+});
+await writeFile(
+  join(consumer, "public/lifecycle.js"),
+  lifecycle.outputFiles[0].text,
 );
 run("npm", ["run", "build"], consumer);
 run("npx", ["cap", "add", "ios"], consumer);

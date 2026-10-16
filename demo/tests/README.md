@@ -104,18 +104,46 @@ npm run test:native:package -- android express <emulator-serial>
 The prepare command creates an independent consumer in the OS temporary directory,
 with its location recorded in `demo/artifacts/native-package-consumer.json`,
 installs `npm pack` output (not a repository symlink), adds ordinary Capacitor
-platforms, and asserts automatic registration on both platforms. Native source
-files and Activity/ViewController entry points are never patched. The runner
-builds and installs this consumer; it requires Xcode or the normal Android
-SDK/JDK environment. `ADB` and `ADB_SERVER_PORT` optionally select an adb binary
-and server. Reports and console/build logs are in the consumer's `artifacts/`.
+platforms, and asserts automatic registration on both platforms. It also bundles
+the installed package entry into `public/lifecycle.js` (an esbuild IIFE) so the
+Android lifecycle stage can reuse the Fetch-only migration checks from inside
+the rendered document. Native source files and Activity/ViewController entry
+points are never patched. The runner builds and installs this consumer; it
+requires Xcode or the normal Android SDK/JDK environment. `ADB` and
+`ADB_SERVER_PORT` optionally select an adb binary and server. Reports and
+console/build logs are in the consumer's `artifacts/`.
 
-The test-only Worker wrapper adds the acceptance script to generated HTML.
-Both frameworks run 50 document/navigation/POST/redirect checks. iOS additionally
-calls public `dispose()` in the retained runtime host; Android verifies the
-native stop method from the visible page. The former iOS diagnostic fetch checks
-requiring script injection before page creation are not counted in this package
-acceptance suite. The underlying production native source is unmodified.
+The test-only Worker wrapper adds the acceptance script to generated HTML, and
+`fixtures/apps/packaged-native/probe-lifecycle.js` is appended to that driver by
+the prepare script. Each run writes a fresh `public/packaged-run.json` token; the
+probe resets its persisted stage when the token changes, while application data
+is otherwise left intact across the run's own stages. One invocation covers, in
+order:
+
+1. The 50 document/navigation/POST/redirect checks on a fresh launch.
+2. Background then foreground; the still-rendered document verifies the local
+   API again (`stage:"background"`).
+3. Terminate the app process and relaunch; fresh rendering and local API access
+   are verified (`stage:"relaunch"`).
+4. Rebuild with an updated bundled Worker marker plus changed/added static
+   assets and reinstall _without_ deleting application data; the new Worker
+   output and assets must be served (`stage:"update"`). On Android this
+   exercises the persistent document Service Worker across an app update.
+5. Shutdown and reinitialization (`stage:"reinit"`). iOS requests public
+   `dispose()` from the document; the retained runtime host performs it and
+   then calls the public startup API again. Android stops the native host via
+   `CapacitorWorkers.stop` from the visible page, reloads, and lets the
+   persistent Service Worker restart the bundled bootstrap. These are distinct
+   mechanisms: public `dispose()` and the native stop method are not claimed
+   equivalent. The Android reinit stage additionally reuses the Fetch-only
+   migration, Service Worker registration cleanup and current-client native
+   asset fallback assertions.
+
+Reports record each lifecycle stage result. OS process termination and relaunch
+are exercised; WebView crash recovery is not claimed. The former iOS diagnostic
+fetch checks requiring script injection before page creation are not counted in
+this package acceptance suite. The underlying production native source is
+unmodified.
 
 The earlier public-source registration overlays have been removed. Historical
 custom-controller experiments remain under `tests/` for the investigation record;
@@ -130,4 +158,6 @@ persisted shutdown across Service Worker restarts.
 
 The historical Android probe retains `--lifecycle` to check Fetch-only migration,
 Service Worker registration cleanup and native asset fallback on the current client.
-These checks are separate from the packaged consumer’s native stop check.
+The packaged runner performs the same assertions in its `reinit` stage through
+the bundled `lifecycle.js` entry, so the CDP probe remains for the earlier
+overlay investigation only.

@@ -118,9 +118,11 @@ internal Response slots. The iOS multipart form supplement covers same-window
 local POST submissions; named windows and iframe targets are not supported.
 
 The native host/child lifecycle, pending-request timeouts and explicit disposal
-are implemented. Physical devices, OS process termination/recovery, memory
-pressure and arbitrary third-party plugin lifecycle behavior are not covered by
-the simulator/emulator acceptance results.
+are implemented. App process termination/relaunch, background/foreground,
+asset-update reinstalls without data deletion, and shutdown followed by
+reinitialization are covered by the packaged acceptance below. Physical
+devices, WebView crash recovery, memory pressure and arbitrary third-party
+plugin lifecycle behavior are not covered by the simulator/emulator results.
 
 ## Demo and validation
 
@@ -141,17 +143,26 @@ See `demo/tests/README.md` for reproduction commands.
 
 ### Packaged installation results
 
-Verified on 2026-10-16 with Capacitor 8.5.3:
+Verified on 2026-10-17 with Capacitor 8.5.3 (the 50-case suite also passed on
+2026-10-16 before the lifecycle stages were added):
 
-| Target                       | Hono                   | Workers Express        |
-| ---------------------------- | ---------------------- | ---------------------- |
-| iOS 26.1 Simulator (SPM)     | 50/50 + public dispose | 50/50 + public dispose |
-| Android 16 emulator (Gradle) | 50/50 + native stop    | 50/50 + native stop    |
+| Target                       | Hono                               | Workers Express                    |
+| ---------------------------- | ---------------------------------- | ---------------------------------- |
+| iOS 26.1 Simulator (SPM)     | 50/50 + lifecycle + public dispose | 50/50 + lifecycle + public dispose |
+| Android 16 emulator (Gradle) | 50/50 + lifecycle + native stop    | 50/50 + lifecycle + native stop    |
 
 These checks cover HTML, scripts/assets, local API calls, fresh documents,
 navigation/history, GET/POST forms, local redirects, multipart files and a native
-CapacitorCookies call after navigation. iOS disposal is invoked from the retained
-runtime host. Android stop is invoked from the visible page.
+CapacitorCookies call after navigation. Each run then covers: rendering and API
+after background/foreground; fresh rendering and API after app
+termination/relaunch; updated Worker code and bundled static assets after an
+update install that preserves application data (on Android this exercises the
+persistent document Service Worker); and shutdown followed by reinitialization.
+iOS disposal and reinitialization use the public API from the retained runtime
+host. Android stop is invoked from the visible page and reinitialization goes
+through the Service Worker bootstrap path; the two are distinct and not claimed
+equivalent. The Android reinit stage repeats the Fetch-only migration,
+registration cleanup and current-client asset fallback assertions.
 
 CI verifies the tarball contents and automatic plugin discovery using a fresh
 consumer. Native compilation and simulator/emulator execution are local acceptance
