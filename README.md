@@ -215,7 +215,9 @@ npm run test:package
 
 ### Demo and integration tests
 
-The validation app is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
+Follow the [demo setup guide](demo/README.md) to see which files to configure and how to run the app.
+
+The demo is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
 
 The demo layout separates application sources from tooling:
 
@@ -224,19 +226,20 @@ demo/
   src/
     main.ts         Runtime initialization
     ui/             Demo screen and API calls
-    workers/        Worker applications (Hono, Express, compatibility fixtures)
-    validation/     Test runners, contracts, implementations and Worker entries
-  public/           Static assets
-  tests/            Automated tests and Playwright/Vitest configurations
+    workers/        Hono and Express application code
+  tests/
+    validation/     Validation page, runners, contracts and Worker entries
+    fixtures/       Test-only Worker handlers
+    ...             Automated tests and Playwright/Vitest configurations
   experiments/      Dedicated Worker experiment
   build-tools/      Build integration fixtures
   scripts/          Build helpers
   ios/, android/    Native projects
 ```
 
-`demo/src/main.ts` only initializes the runtime and waits for it to be ready. `demo/src/ui/display.ts` then makes a normal fetch call and displays the result. The separate `demo/src/validation/` page runs compatibility checks; open it using the link on the demo screen. Its shared HTTP checks live in `demo/src/validation/contracts/http.ts` and are reused by the build-tool and Worker experiments.
+`demo/src/main.ts` only initializes the runtime and waits for it to be ready. `demo/src/ui/display.ts` then makes a normal fetch call and displays the result. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and Worker experiments.
 
-Worker fixtures are organized as `demo/src/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; additional scenarios can be added alongside them.
+Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; test-only runtime and compatibility fixtures live under `demo/tests/fixtures/workers/`.
 
 ```sh
 cd demo
@@ -269,7 +272,7 @@ npm run ios
 npm run android
 ```
 
-Android requires Java 21+. The demo opens the minimal Hono example. Its separate compatibility page bundles both Workers and runs 26 checks when opened. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
+Android requires Java 21+. The demo opens the minimal Hono example. For the separate 26-check validation app, run `npm run build:validation`, then use `CAPACITOR_WORKERS_VALIDATION=1` with the sync/ios/android commands instead. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
 
 ### Continuous integration
 

@@ -1,21 +1,24 @@
-import { kvRequest } from "../../src/validation/kv";
-import { runFeatures } from "../../src/validation/run-features";
+import { kvRequest } from "../../tests/validation/kv";
+import { runFeatures } from "../../tests/validation/run-features";
 import { Capacitor } from "@capacitor/core";
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
 import { runFrameworkContract } from "./frameworks";
 
 const isolation = () =>
   new Worker(
-    new URL("../../src/validation/entries/isolation.ts", import.meta.url),
+    new URL("../../tests/validation/entries/isolation.ts", import.meta.url),
     { type: "module" },
   );
 const hono = () =>
-  new Worker(new URL("../../src/validation/entries/hono.ts", import.meta.url), {
-    type: "module",
-  });
+  new Worker(
+    new URL("../../tests/validation/entries/hono.ts", import.meta.url),
+    {
+      type: "module",
+    },
+  );
 const express = () =>
   new Worker(
-    new URL("../../src/validation/entries/express.ts", import.meta.url),
+    new URL("../../tests/validation/entries/express.ts", import.meta.url),
     { type: "module" },
   );
 
@@ -91,8 +94,9 @@ export function startStartupProbe() {
         throw new Error("Direct-only regression fixture");
       },
       loadDirect: async () =>
-        (await import("../../src/workers/runtime/direct-startup-fetch"))
-          .default,
+        (
+          await import("../../tests/fixtures/workers/runtime/direct-startup-fetch")
+        ).default,
     },
   });
 }
@@ -110,7 +114,8 @@ export function startDelayedDirect() {
       },
       loadDirect: async () => {
         await gate;
-        return (await import("../../src/workers/runtime/isolation")).default;
+        return (await import("../../tests/fixtures/workers/runtime/isolation"))
+          .default;
       },
     },
   });

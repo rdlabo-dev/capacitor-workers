@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+test.use({ baseURL: "http://127.0.0.1:4188" });
+
 test("Hono and real Express run entirely in the browser", async ({
   page,
   context,
@@ -12,7 +14,7 @@ test("Hono and real Express run entirely in the browser", async ({
     )
       apiRequests.push(request.url());
   });
-  await page.goto("/validation/");
+  await page.goto("/");
   await page.waitForFunction(() => window.pocDone);
   const results = await page.evaluate(() => window.pocResults);
   expect(results, await page.locator("pre").innerText()).toHaveLength(26);

@@ -15,7 +15,4 @@ test("minimal demo calls the configured Worker", async ({ page }) => {
     ),
   );
   expect(requests).toEqual([]);
-  await expect(
-    page.getByRole("link", { name: "Run compatibility checks" }),
-  ).toHaveAttribute("href", "./validation/");
 });

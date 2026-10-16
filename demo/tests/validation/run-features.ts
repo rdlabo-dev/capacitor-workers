@@ -1,7 +1,7 @@
 import { verifyKVPersistence } from "./kv";
 import { FetchImplementation } from "@rdlabo/capacitor-workers/features/fetch";
 import { assertContract, runContract } from "@rdlabo/capacitor-workers/testing";
-import worker from "../workers/compatibility/fetch";
+import worker from "../fixtures/workers/compatibility/fetch";
 const isolated = () =>
   new Worker(new URL("./entries/fetch.ts", import.meta.url), {
     type: "module",

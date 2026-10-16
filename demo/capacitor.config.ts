@@ -5,6 +5,8 @@ const config: CapacitorConfig = {
   webDir:
     process.env.CAPACITOR_WORKERS_EXPERIMENT === "1"
       ? "artifacts/dedicated-worker"
-      : "dist",
+      : process.env.CAPACITOR_WORKERS_VALIDATION === "1"
+        ? "artifacts/validation"
+        : "dist",
 };
 export default config;

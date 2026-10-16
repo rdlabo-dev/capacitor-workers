@@ -34,7 +34,8 @@ for (const entry of [
   "build-tools",
   "scripts/build-tools.mjs",
   "src",
-  "public",
+  "tests/validation",
+  "tests/fixtures",
   "experiments/dedicated-worker",
 ]) {
   await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
@@ -42,7 +43,7 @@ for (const entry of [
 await writeFile(
   join(temp, "vite.config.mjs"),
   `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo/src',publicDir:'../public',plugins:[capacitorWorkersPlugin({worker:'./workers/hono/standard.ts'})],build:{outDir:'../../build',target:'es2022',rollupOptions:{input:{demo:'demo/src/index.html',validation:'demo/src/validation/index.html'}}}};`,
+export default {root:'demo/tests/validation',plugins:[capacitorWorkersPlugin()],build:{outDir:'../../../build',target:'es2022'}};`,
 );
 execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
   cwd: temp,
@@ -156,7 +157,7 @@ try {
   }
   browser = await chromium.launch();
   const page = await browser.newPage();
-  await page.goto("http://127.0.0.1:4189/validation/");
+  await page.goto("http://127.0.0.1:4189/");
   await page.waitForFunction(() => window.pocDone);
   const results = await page.evaluate(() => window.pocResults);
   if (results?.length !== 26 || results.some((r) => !r.ok))
@@ -165,7 +166,7 @@ try {
   await writeFile(
     join(temp, "vite.config.mjs"),
     `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin({worker:'../../src/workers/runtime/isolation.ts'})],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
+export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin({worker:'../../tests/fixtures/workers/runtime/isolation.ts'})],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
   );
   execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
     cwd: temp,

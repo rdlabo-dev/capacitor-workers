@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { test, expect } from "@playwright/test";
 
+test.use({ baseURL: "http://127.0.0.1:4188" });
+
 test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
   for (const file of [
     "index.js",
@@ -17,7 +19,7 @@ test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
       route.fulfill({ contentType: "text/javascript", body: source }),
     );
   }
-  await page.goto("/validation/");
+  await page.goto("/");
   await page.waitForFunction(() => window.pocDone);
   const result = await page.evaluate(async () => {
     const moduleURL = "/runtime-under-test/index.js";
