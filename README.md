@@ -14,6 +14,9 @@ const runtime = capacitorWorkers({
   baseURL: "https://api.example.com/api/",
 });
 
+// Finish initialization before UI requests (direct modules load lazily).
+await runtime.ready;
+
 // Existing UI calls stay unchanged.
 const response = await fetch("/api/hello");
 ```
@@ -37,11 +40,11 @@ For TypeScript, add this to a declaration file such as `vite-env.d.ts`:
 
 The plugin's `worker` path is relative to the Vite root (absolute paths also work). Import `virtual:capacitor-workers` to obtain both execution candidates. The default `prefer: "worker"` starts a Dedicated Web Worker when available and the initial `env` contains only plain data. If Worker is absent, its constructor reports SecurityError/NotSupportedError, or `env` contains methods/custom prototypes/accessors (such as local KV bindings), it selects direct execution before handling any request. `prefer: "direct"` loads the direct module without creating a Worker. Direct execution is always the available baseline; a module or application error does not mean it is unavailable.
 
-Await `runtime.ready` and inspect `runtime.execution` (`"worker"` or `"direct"`) to observe the selection. Direct code is dynamically imported only when selected. Selection happens once: startup script failures and request errors are reported, never replayed in the other environment. This is not automatic detection of every unsupported Workers API. Changes to `env` after selection do not trigger reselection. Worker selection conservatively accepts primitives, plain objects and arrays (including cycles); other structured-clone-capable types currently select direct too.
+Await `runtime.ready` and inspect `runtime.execution` (`"worker"` or `"direct"`) to observe the selection. Direct code is dynamically imported only when selected. Selection happens once: startup script failures and request errors are reported, never replayed in the other environment. This is not automatic detection of every unsupported Workers API. Changes to `env` after selection do not trigger reselection. Worker selection conservatively accepts primitives, ordinary objects and arrays (including cycles), without non-enumerable custom properties or null prototypes; other structured-clone-capable types currently select direct too.
 
 Existing direct-handler imports and `?capacitor-worker` factory imports remain supported for explicit low-level use. `prefer` requires the configured source above; it cannot manufacture a second candidate from a handler or factory alone.
 
-Installation synchronously intercepts fetch; calls wait for Worker startup automatically. `await runtime.ready` optionally observes startup success/failure before rendering the UI. `await capacitorWorkers(...)` does **not** await Worker startup. Only one installation is supported; `runtime.dispose()` restores fetch and terminates the Dedicated Worker. Termination rejects unfinished local calls/body reads and releases background tracking.
+Installation synchronously intercepts fetch. Worker-mode requests wait for startup; matching requests during direct-module loading reject explicitly to prevent top-level-await deadlocks. Await `runtime.ready` before starting UI requests. The runtime cannot distinguish module-initialization calls from concurrent UI calls, so both reject while direct loading is in progress. `await runtime.ready` observes startup success/failure before rendering the UI. `await capacitorWorkers(...)` does **not** await Worker startup. Only one installation is supported; `runtime.dispose()` restores fetch and terminates the Dedicated Worker. Termination rejects unfinished local calls/body reads and releases background tracking.
 
 Direct imports remain supported: `import worker from "./worker"` supplies an object with `fetch` and runs in the UI global scope. Hono needs no build plugin in that mode; Workers Express still needs the compatibility plugin. Worker subrequests stay outside UI interception only when `runtime.execution` is `"worker"`; direct fallback shares the UI global environment.
 

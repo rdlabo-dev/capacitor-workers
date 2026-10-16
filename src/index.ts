@@ -12,7 +12,7 @@ export { FetchRuntime, type FetchRuntimeOptions } from "./fetch/runtime.js";
 
 let installed = false;
 
-/** Installs synchronously; await is optional. Does not start a server. */
+/** Installs synchronously; await ready before local requests. Does not start a server. */
 export function capacitorWorkers<Env = Record<string, unknown>>(
   options: CapacitorWorkersOptions<Env>,
 ) {

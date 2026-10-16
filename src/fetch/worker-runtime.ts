@@ -49,15 +49,19 @@ function plainData(value: unknown, seen = new Set<object>()): boolean {
   const prototype = Object.getPrototypeOf(value);
   if (
     (Array.isArray(value) && prototype !== Array.prototype) ||
-    (!Array.isArray(value) &&
-      prototype !== Object.prototype &&
-      prototype !== null)
+    (!Array.isArray(value) && prototype !== Object.prototype)
   )
     return false;
   return Reflect.ownKeys(value).every((key) => {
     if (typeof key === "symbol") return false;
     const property = Object.getOwnPropertyDescriptor(value, key)!;
-    return "value" in property && plainData(property.value, seen);
+    // Array length is intrinsic and preserved by structured cloning.
+    if (Array.isArray(value) && key === "length") return true;
+    return (
+      property.enumerable === true &&
+      "value" in property &&
+      plainData(property.value, seen)
+    );
   });
 }
 
@@ -65,6 +69,7 @@ export class PreferredFetchRuntime<Env> extends FetchRuntime<Env> {
   private isolated?: ReturnType<typeof createIsolatedWorker<Env>>;
   private handler?: WorkerHandler<Env>;
   private closed = false;
+  private loadingDirect = false;
   private selected?: "worker" | "direct";
   get execution() {
     return this.selected;
@@ -105,7 +110,13 @@ export class PreferredFetchRuntime<Env> extends FetchRuntime<Env> {
         return;
       }
     }
-    const handler = await source.loadDirect();
+    this.loadingDirect = true;
+    let handler: WorkerHandler<Env>;
+    try {
+      handler = await source.loadDirect();
+    } finally {
+      this.loadingDirect = false;
+    }
     if (this.closed) throw new Error("Worker runtime disposed");
     if (typeof handler?.fetch !== "function")
       throw new TypeError("worker.fetch is required.");
@@ -113,6 +124,11 @@ export class PreferredFetchRuntime<Env> extends FetchRuntime<Env> {
     this.selected = "direct";
   }
   protected async dispatch(request: Request, env: Env, ctx: WorkerContext) {
+    if (this.closed) throw new Error("Worker runtime disposed");
+    if (this.loadingDirect)
+      throw new Error(
+        "Direct module initialization is in progress; await runtime.ready before local fetch and do not await local fetch at module top level.",
+      );
     await this.ready;
     if (this.closed) throw new Error("Worker runtime disposed");
     request.signal.throwIfAborted();

@@ -55,6 +55,7 @@ it("keeps method-bearing binding identity in direct mode", async () => {
   }
   const env = { KV: new Binding() };
   const { runtime, source, direct } = setup(undefined, env);
+  await runtime.ready;
   await runtime.fetch("https://test/api");
   expect(source.createWorker).not.toHaveBeenCalled();
   expect(direct.fetch.mock.calls[0]?.[1]).toBe(env);
@@ -129,4 +130,111 @@ it("falls back on a platform constructor denial, but not a script startup error"
   await expect(failed.ready).rejects.toThrow("module failed");
   expect(loadDirect).not.toHaveBeenCalled();
   expect(broken.terminate).toHaveBeenCalled();
+});
+it("rejects a local top-level await fetch instead of deadlocking direct startup", async () => {
+  const { capacitorWorkers } = await import("../../src/index");
+  const runtime = capacitorWorkers({
+    baseURL: "https://test/api",
+    prefer: "direct",
+    worker: {
+      createWorker: vi.fn(),
+      loadDirect: async () =>
+        (await import("../fixtures/direct-startup-fetch")).default,
+    },
+  });
+  cleanups.push(() => runtime.dispose());
+  await expect(runtime.ready).rejects.toThrow(
+    "Direct module initialization is in progress",
+  );
+});
+for (const shape of ["hidden", "null-prototype"] as const) {
+  it(`preserves ${shape} env semantics by selecting direct`, async () => {
+    const env =
+      shape === "hidden"
+        ? Object.defineProperty({}, "TOKEN", { value: "local" })
+        : Object.assign(Object.create(null), { TOKEN: "local" });
+    const { runtime, source, direct } = setup(undefined, { nested: env });
+    await runtime.ready;
+    await runtime.fetch("https://test/api");
+    expect(runtime.execution).toBe("direct");
+    expect(source.createWorker).not.toHaveBeenCalled();
+    const received = direct.fetch.mock.calls[0][1] as { nested: typeof env };
+    expect(received.nested).toBe(env);
+    expect(received.nested.TOKEN).toBe("local");
+    expect(Object.getPrototypeOf(received.nested)).toBe(
+      Object.getPrototypeOf(env),
+    );
+  });
+}
+it("preserves ordinary arrays and cyclic plain env through the actual transport", async () => {
+  vi.stubGlobal("Worker", function Worker() {});
+  const env = { items: ["local", { n: 2 }], self: null as unknown };
+  env.self = env;
+  const handler = {
+    fetch: vi.fn((_request: Request, received: typeof env) => {
+      expect(received).not.toBe(env);
+      expect(received.items).toEqual(env.items);
+      expect(received.self).toBe(received);
+      return new Response("preserved");
+    }),
+  };
+  const runtime = createFetchRuntime({
+    baseURL: "https://test/api",
+    env,
+    worker: {
+      createWorker: () => workerFor(handler) as unknown as Worker,
+      loadDirect: async () => {
+        throw new Error("should not fall back");
+      },
+    },
+  });
+  cleanups.push(() => runtime.dispose());
+  expect(await (await runtime.fetch("https://test/api")).text()).toBe(
+    "preserved",
+  );
+  expect(runtime.execution).toBe("worker");
+});
+it("aborts queued worker requests before startup without replaying them", async () => {
+  vi.stubGlobal("Worker", function Worker() {});
+  const handler = { fetch: vi.fn(() => new Response("ready")) };
+  let announce!: () => void;
+  const runtime = createFetchRuntime({
+    baseURL: "https://test/api",
+    worker: {
+      createWorker() {
+        const client = workerFor(handler);
+        let callback: typeof client.onmessage = null;
+        Object.defineProperty(client, "onmessage", {
+          get: () => (event: { data: unknown }) => {
+            announce = () => callback?.(event);
+          },
+          set: (value: typeof client.onmessage) => {
+            callback = value;
+          },
+        });
+        return client as unknown as Worker;
+      },
+      loadDirect: async () => {
+        throw new Error("unexpected fallback");
+      },
+    },
+  });
+  cleanups.push(() => runtime.dispose());
+  const controller = new AbortController();
+  const pending = runtime.fetch("https://test/api", {
+    method: "POST",
+    body: "write",
+    signal: controller.signal,
+  });
+  const rejection = expect(pending).rejects.toMatchObject({
+    name: "AbortError",
+  });
+  await Promise.resolve();
+  controller.abort();
+  await rejection;
+  await vi.waitFor(() => expect(announce).toBeTypeOf("function"));
+  announce();
+  await runtime.ready;
+  expect(await (await runtime.fetch("https://test/api")).text()).toBe("ready");
+  expect(handler.fetch).toHaveBeenCalledOnce();
 });
