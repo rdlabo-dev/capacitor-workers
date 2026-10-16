@@ -54,7 +54,14 @@ function readType(options?: KVReadType | KVReadOptions): KVReadType {
     (!Number.isInteger(options.cacheTtl) || options.cacheTtl < 30)
   )
     throw new TypeError("cacheTtl must be an integer of at least 30 seconds");
-  return options?.type === undefined ? "text" : readType(options.type);
+  const type = options?.type;
+  if (type === undefined) return "text";
+  if (
+    typeof type !== "string" ||
+    !["text", "json", "arrayBuffer", "stream"].includes(type)
+  )
+    throw new TypeError("Unsupported KV read type");
+  return type;
 }
 interface RecordValue {
   data: string;
@@ -200,25 +207,22 @@ export class StorageNamespace {
   ): Promise<void> {
     const name = this.prefix + keyName(key);
     optionsObject(options, ["expiration", "expirationTtl", "metadata"]);
+    const { expiration: absoluteExpiration, expirationTtl } = options ?? {};
     const now = Math.floor(Date.now() / 1000);
     if (
-      options?.expiration !== undefined &&
-      (!Number.isInteger(options.expiration) || options.expiration < now + 60)
+      absoluteExpiration !== undefined &&
+      (!Number.isInteger(absoluteExpiration) || absoluteExpiration < now + 60)
     )
       throw new TypeError(
         "expiration must be an integer at least 60 seconds in the future",
       );
     if (
-      options?.expirationTtl !== undefined &&
-      (!Number.isInteger(options.expirationTtl) || options.expirationTtl < 60)
+      expirationTtl !== undefined &&
+      (!Number.isInteger(expirationTtl) || expirationTtl < 60)
     )
       throw new TypeError(
         "expirationTtl must be an integer of at least 60 seconds",
       );
-    const expiration =
-      options?.expirationTtl !== undefined
-        ? now + options.expirationTtl
-        : options?.expiration;
     let metadata: unknown;
     if (options?.metadata !== undefined) {
       const serialized = JSON.stringify(options.metadata);
@@ -271,11 +275,18 @@ export class StorageNamespace {
     } else throw new TypeError("KV value must be text, bytes or a byte stream");
     if (bytes.length > maxValue)
       throw new RangeError("KV value exceeds 25 MiB");
+    const data = encode(bytes);
+    const committedAt = Math.floor(Date.now() / 1000);
+    const expiration =
+      expirationTtl !== undefined
+        ? committedAt + expirationTtl
+        : absoluteExpiration;
+    if (expiration !== undefined && expiration <= committedAt)
+      throw new TypeError(
+        "expiration elapsed before the value could be stored",
+      );
     // One write publishes value, metadata and expiration together, only after validation.
-    this.storage.setItem(
-      name,
-      JSON.stringify({ data: encode(bytes), expiration, metadata }),
-    );
+    this.storage.setItem(name, JSON.stringify({ data, expiration, metadata }));
   }
   async delete(key: string): Promise<void> {
     this.storage.removeItem(this.prefix + keyName(key));

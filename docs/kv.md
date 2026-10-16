@@ -30,7 +30,7 @@ The Worker can type this binding as the exported `KVNamespace`. The same Worker 
 | `delete(key)` | Delete value, metadata and expiration together; absent keys are harmless |
 | `list(options?)` | UTF-8 key ordering, prefix, limit (1–1000), continuation cursor, metadata and expiration |
 
-`expirationTtl` and future absolute `expiration` have a minimum of 60 seconds. If both are present, TTL selects the resulting expiration. Expiration is checked on reads and listing, including after a new feature session; an expired record is removed lazily. Overwriting without options removes previous metadata and expiration. Cursors are opaque local tokens bound to the namespace and prefix, not portable to Cloudflare. They resume after the last returned key rather than an array offset; deleting previous entries does not skip the next key. Listing is not a transactional snapshot under concurrent writes.
+`expirationTtl` and future absolute `expiration` have a minimum of 60 seconds. If both are present, TTL selects the resulting expiration. TTL begins after the input has been collected and encoded, immediately before publication. An absolute expiration is validated at invocation and rejected if it has elapsed before publication, preserving any previous value. Expiration is checked on reads and listing, including after a new feature session; an expired record is removed lazily. Overwriting without options removes previous metadata and expiration. Cursors are opaque local tokens bound to the namespace and prefix, not portable to Cloudflare. They resume after the last returned key rather than an array offset; deleting previous entries does not skip the next key. Listing is not a transactional snapshot under concurrent writes.
 
 ## Implementation guardrails
 

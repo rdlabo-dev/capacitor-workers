@@ -245,3 +245,87 @@ it("distinguishes stored JSON null from a missing bulk metadata entry", async ()
   // @ts-expect-error Null must not silently select a default limit.
   await expect(api.list({ limit: null })).rejects.toThrow();
 });
+
+it("starts a stream write's TTL when the collected value is committed", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-16T00:00:00Z"));
+  try {
+    const api = new LocalStorageKV("slow", storage()).create();
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const options = { expirationTtl: 60 };
+    const pending = api.put(
+      "key",
+      new ReadableStream<Uint8Array>({
+        start(c) {
+          controller = c;
+        },
+      }),
+      options,
+    );
+    // Options are captured at invocation even when stream collection yields.
+    options.expirationTtl = 120;
+    vi.setSystemTime(new Date("2026-10-16T00:01:01Z"));
+    controller.enqueue(new TextEncoder().encode("value"));
+    controller.close();
+    await pending;
+    expect(await api.get("key")).toBe("value");
+    expect((await api.list()).keys[0].expiration).toBe(Date.now() / 1000 + 60);
+    vi.advanceTimersByTime(60_000);
+    expect(await api.get("key")).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("rejects an absolute expiration elapsed during collection without replacing the old value", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-16T00:00:00Z"));
+  try {
+    const api = new LocalStorageKV("slow", storage()).create();
+    await api.put("key", "old", { metadata: { version: 1 } });
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    const pending = api.put(
+      "key",
+      new ReadableStream<Uint8Array>({
+        start(c) {
+          controller = c;
+        },
+      }),
+      { expiration: Date.now() / 1000 + 60 },
+    );
+    vi.setSystemTime(new Date("2026-10-16T00:01:01Z"));
+    controller.enqueue(new TextEncoder().encode("new"));
+    controller.close();
+    await expect(pending).rejects.toThrow("elapsed");
+    expect(await api.getWithMetadata("key")).toEqual({
+      value: "old",
+      metadata: { version: 1 },
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("rejects nested and cyclic read modes in single and bulk reads", async () => {
+  const api = new LocalStorageKV("invalid-read", storage()).create();
+  await api.put("key", "42");
+  const cyclic: { type?: unknown } = {};
+  cyclic.type = cyclic;
+  for (const options of [
+    { type: { type: "json" } },
+    cyclic,
+    { type: null },
+    { type: 1 },
+  ]) {
+    await expect(api.get("key", options as never)).rejects.toBeInstanceOf(
+      TypeError,
+    );
+    await expect(api.get(["key"], options as never)).rejects.toBeInstanceOf(
+      TypeError,
+    );
+    await expect(
+      api.getWithMetadata("key", options as never),
+    ).rejects.toBeInstanceOf(TypeError);
+    await expect(
+      api.getWithMetadata(["key"], options as never),
+    ).rejects.toBeInstanceOf(TypeError);
+  }
+});
