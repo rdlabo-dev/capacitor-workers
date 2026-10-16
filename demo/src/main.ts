@@ -5,6 +5,3 @@ const runtime = capacitorWorkers({
   baseURL: "https://worker.invalid/api/",
 });
 await runtime.ready;
-
-const response = await fetch("/api/hello?name=Capacitor");
-export const message = await response.json();

@@ -2,10 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test.beforeEach(async ({ page, context }, testInfo) => {
   if (testInfo.title.includes("startup failure")) {
-    await context.route(
-      "**/assets/isolation.ts.capacitor-worker-*.js",
-      (route) => route.abort(),
-    );
+    await context.route("**/assets/isolation-*.js", (route) => route.abort());
   }
   await page.goto("/");
   await page.waitForFunction(

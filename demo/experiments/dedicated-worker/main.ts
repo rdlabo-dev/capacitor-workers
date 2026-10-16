@@ -2,10 +2,22 @@ import { kvRequest } from "../../src/features/kv";
 import { runFeatures } from "../../src/features/run";
 import { Capacitor } from "@capacitor/core";
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
-import isolation from "../../src/workers/runtime/isolation?capacitor-worker";
-import hono from "../../src/workers/hono/standard?capacitor-worker";
-import express from "../../src/workers/express/standard?capacitor-worker";
 import { runFrameworkContract } from "./frameworks";
+
+const isolation = () =>
+  new Worker(
+    new URL("../../src/validation/workers/isolation.ts", import.meta.url),
+    { type: "module" },
+  );
+const hono = () =>
+  new Worker(new URL("../../src/validation/workers/hono.ts", import.meta.url), {
+    type: "module",
+  });
+const express = () =>
+  new Worker(
+    new URL("../../src/validation/workers/express.ts", import.meta.url),
+    { type: "module" },
+  );
 
 export type Framework = "hono" | "express";
 export function startExperiment(

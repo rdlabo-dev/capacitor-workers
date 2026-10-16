@@ -50,8 +50,13 @@ execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
 });
 await writeFile(
   join(temp, "consumer.ts"),
-  `/// <reference types="@rdlabo/capacitor-workers/client" />
-import worker from "./demo/src/workers/hono/standard?capacitor-worker";
+  `/// <reference types="@rdlabo/capacitor-workers/cloudflare" />
+import worker from "./demo/src/workers/hono/standard";
+import { httpServerHandler } from "cloudflare:node";
+const handler = httpServerHandler({ port: 3000 });
+const response: Promise<Response> = handler.fetch(new Request("https://worker.invalid/api"));
+// @ts-expect-error Logical ports must be numeric.
+httpServerHandler({ port: "3000" });
 import { capacitorWorkers, FetchRuntime, type WorkerContext } from "@rdlabo/capacitor-workers";
 class ExampleRuntime extends FetchRuntime<{ label: string }> {
   protected dispatch(request: Request, env: { label: string }, ctx: WorkerContext) {
@@ -103,7 +108,7 @@ const fetcher: typeof fetch = example.fetch;
 example.dispose();
 const runtime = capacitorWorkers({worker, baseURL:"https://worker.invalid/api"});
 const ready: Promise<void> = runtime.ready;
-// @ts-expect-error Worker factories must not degrade to any.
+// @ts-expect-error Worker handlers must not degrade to any.
 const invalid: number = worker;
 runtime.dispose();
 `,

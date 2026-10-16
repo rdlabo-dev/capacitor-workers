@@ -126,7 +126,7 @@ Only one installation is supported; `runtime.dispose()` restores fetch and termi
 
 ### Explicit Worker sources
 
-Existing direct-handler imports and `?capacitor-worker` factory imports remain supported for explicit low-level use. `prefer` requires the plugin configuration or an explicit source with both `createWorker` and `loadDirect`; it cannot manufacture a second candidate from a handler or factory alone.
+Explicit direct-handler imports and standard `new Worker(new URL(...), { type: "module" })` factories are supported. `prefer` requires the plugin configuration or an explicit source with both `createWorker` and `loadDirect`; it cannot manufacture a second candidate from a handler or factory alone.
 
 Direct imports remain supported: `import worker from "./worker"` supplies an object with `fetch` and runs in the UI global scope. Hono needs no build plugin in that mode; Workers Express still needs the compatibility plugin. Worker subrequests stay outside UI interception only when `runtime.execution` is `"worker"`; direct fallback shares the UI global environment.
 
@@ -184,6 +184,16 @@ export default httpServerHandler({ port: 3000 });
 
 Use the plugin shown above only in the Capacitor/browser build, never the Cloudflare build. It supplies limited Node HTTP compatibility and browser polyfills. `listen(3000)` registers an in-memory handler, not a listening TCP port. The plugin supports both Hono and Workers Express; framework code stays unchanged.
 
+### TypeScript types
+
+The package provides the `cloudflare:node` type for its supported `httpServerHandler` adapter. For a browser build without existing Workers type declarations, add it to `compilerOptions.types` in `tsconfig.json`:
+
+```json
+{ "compilerOptions": { "types": ["@rdlabo/capacitor-workers/cloudflare"] } }
+```
+
+Keep any other types your project already uses. This is a type-only entry; do not import it at runtime. Projects with generated Workers types should keep those declarations instead. No application-owned `cloudflare.d.ts` or `client.d.ts` is needed.
+
 ## Local KV
 
 Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent KV binding through `env` in direct execution, including read modes, bulk reads, metadata, expiration and paginated listing. See [setup, supported operations and limits](docs/kv.md). The named contract is tested against local workerd; cloud replication and isolated binding RPC remain outside its scope.
@@ -220,7 +230,7 @@ demo/
   ios/, android/    Native projects
 ```
 
-`demo/src/main.ts` shows only runtime initialization and a normal fetch call. `demo/src/display.ts` handles the example screen. The separate `demo/src/validation/` page runs compatibility checks; open it using the link on the demo screen.
+`demo/src/main.ts` only initializes the runtime and waits for it to be ready. `demo/src/display.ts` then makes a normal fetch call and displays the result. The separate `demo/src/validation/` page runs compatibility checks; open it using the link on the demo screen.
 
 Worker fixtures are organized as `demo/src/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; additional scenarios can be added alongside them.
 

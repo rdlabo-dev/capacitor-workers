@@ -4,7 +4,6 @@ import {
   configuredPath,
   compatibilityAliases,
   workerEntry,
-  workerSource,
   compatPath,
 } from "./build/shared.js";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
@@ -35,28 +34,11 @@ function workerEntryPlugin(entries: Map<string, string>): Plugin {
   return {
     name: "capacitor-workers-entry",
     enforce: "pre",
-    async resolveId(source, importer) {
-      const [path, query = ""] = source.split("?");
-      if (entries.has(path)) return source;
-      if (query !== "capacitor-worker") return;
-      const resolved = await this.resolve(path, importer, { skipSelf: true });
-      if (!resolved || resolved.external)
-        this.error("Cannot resolve Worker entry: " + path);
-      const generated = resolved.id + entrySuffix;
-      if (existsSync(generated))
-        this.error(
-          "Generated Worker entry conflicts with an existing file: " +
-            generated,
-        );
-      entries.set(generated, resolved.id);
-      return resolved.id + "?capacitor-worker";
+    resolveId(source) {
+      if (entries.has(source.split("?")[0])) return source;
     },
     load(id) {
       const [path, query = ""] = id.split("?");
-      if (query === "capacitor-worker") {
-        return `import Constructor from ${JSON.stringify(path + entrySuffix + "?worker")};
-export default () => new Constructor();`;
-      }
       if (entries.has(path) && !new URLSearchParams(query).has("worker")) {
         const original = entries.get(path)!;
         return workerEntry(original);
@@ -85,20 +67,28 @@ export function capacitorWorkersPlugin(
       configResolved(config) {
         root = config.root;
       },
-      resolveId(id) {
-        if (id === "virtual:capacitor-workers")
-          return "\0virtual:capacitor-workers";
-      },
-      load(id) {
-        const configured = id.split("?")[0] === normalizePath(configuredPath);
-        if (!configured && id !== "\0virtual:capacitor-workers") return;
-        if (configured && !options.worker) return;
-        if (!options.worker)
+      async load(id) {
+        if (
+          id.split("?")[0] !== normalizePath(configuredPath) ||
+          !options.worker
+        )
+          return;
+        const path = resolve(root, options.worker);
+        const resolved = await this.resolve(path, undefined, {
+          skipSelf: true,
+        });
+        if (!resolved || resolved.external)
+          this.error("Cannot resolve Worker entry: " + path);
+        const entry = resolved.id;
+        const generated = entry + entrySuffix;
+        if (existsSync(generated))
           this.error(
-            "Set worker in capacitorWorkersPlugin({ worker }) before importing virtual:capacitor-workers.",
+            "Generated Worker entry conflicts with an existing file: " +
+              generated,
           );
-        const entry = resolve(root, options.worker);
-        return workerSource(entry, entry + "?capacitor-worker");
+        entries.set(generated, entry);
+        return `import Constructor from ${JSON.stringify(generated + "?worker")};
+export default { createWorker: () => new Constructor(), loadDirect: async () => (await import(${JSON.stringify(entry)})).default };`;
       },
     },
     workerEntryPlugin(entries),

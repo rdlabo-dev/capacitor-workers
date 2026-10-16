@@ -12,7 +12,7 @@ export interface WorkerHandler<Env = Record<string, unknown>> {
   ): Response | Promise<Response>;
 }
 
-/** Produced by the Vite plugin's ?capacitor-worker import. */
+/** Creates a Dedicated Worker connected to the public serve() entry. */
 export type WorkerFactory = () => Worker;
 
 export interface FetchRuntimeOptions<Env> {
