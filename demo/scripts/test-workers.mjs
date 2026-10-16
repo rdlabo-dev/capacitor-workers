@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
-import { runContract } from "../demo/contract.ts";
+import { runContract } from "../contract.ts";
 
 const reports = {};
 for (const [framework, port] of [

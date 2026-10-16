@@ -38,3 +38,9 @@ Screenshots, build products and raw results are local ignored artifacts. The rep
 The review found that a double-slash pathname could override the configured Worker origin. URL construction now assigns pathname and query separately. A second failure reproduced an uncaught exception and pending fetch when asynchronous Express response headers could not be converted; header conversion is now inside the existing rejection boundary.
 
 Both cases have regression tests. Build, typecheck, seven unit tests, Chromium and WebKit (26 checks plus 18 offline API checks each) pass after these fixes. The native screenshots above are from the initial PoC run; native builds were not repeated for these two targeted fixes.
+
+## Demo project layout
+
+The validation app now lives entirely under `demo/`, with independent dependencies and a lockfile (no npm workspace). Run browser/workerd tests and Capacitor commands from that directory. The library build, unit tests and npm tarball consumer test remain at the repository root. Historical artifact paths above refer to their original runs.
+
+The boundary review copied the library into a temporary directory without demo or native projects: clean install, build, typecheck and all seven unit tests passed. The independent demo then passed its own clean install, typecheck and build. Chromium/WebKit, local workerd and the fresh tarball consumer tests also passed after the separation. Capacitor sync regenerated Android's dependency path against `demo/node_modules`, not the root installation. The combined demo now measures approximately 1,533 kB minified (about 505–507 kB gzip), distinct from the initial measurements above.

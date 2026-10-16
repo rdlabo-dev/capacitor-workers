@@ -68,21 +68,32 @@ npm ci
 npm run build
 npm run typecheck
 npm test
-npm run build:demo
+npx playwright install chromium
+npm run test:package
+```
+
+The validation app is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
+
+```sh
+cd demo
+npm ci
+npm run typecheck
+npm run build
 npx playwright install chromium webkit
 npm run test:browser
 npm run test:workers
-npm run test:package
 ```
 
 `test:workers` starts temporary **local workerd** processes and runs the same API contract used by the WebView. It is not a live Cloudflare deployment. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks both frameworks without handwritten aliases/polyfills.
 
 For the native demo:
 
+Run the following from `demo/`, after building its web assets:
+
 ```sh
-npx cap sync
-npx cap run ios
-npx cap run android
+npm run sync
+npm run ios
+npm run android
 ```
 
 Android requires Java 21+. The demo bundles both Workers and runs 26 checks automatically. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.

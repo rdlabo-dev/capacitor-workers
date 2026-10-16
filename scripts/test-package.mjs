@@ -27,7 +27,17 @@ execFileSync(
   ],
   { cwd: temp, stdio: "pipe" },
 );
-await cp("demo", join(temp, "demo"), { recursive: true });
+// The consumer test needs web sources only, not native projects/build outputs.
+for (const entry of [
+  "workers",
+  "public",
+  "main.ts",
+  "index.html",
+  "contract.ts",
+  "cloudflare.d.ts",
+]) {
+  await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
+}
 await writeFile(
   join(temp, "vite.config.mjs"),
   `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
