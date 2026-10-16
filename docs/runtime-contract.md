@@ -39,7 +39,7 @@ Temporarily restoring global fetch while a handler runs would break concurrent U
 
 `demo/experiments/dedicated-worker/` imports the unchanged `demo/workers/runtime/isolation.ts` module in a separate global scope. The UI installs the existing adapter with a small MessageChannel bridge. Requests carry URL/method/headers and a buffered body; responses transfer a ReadableStream. Abort messages reach an AbortController inside the worker. Background completion is reported separately from the response and participates in runtime.drain().
 
-The experimental page/build is separate from the normal demo and Capacitor assets. No extra dependency, native code or public library API was added.
+The experimental page/build is separate from the normal demo. Capacitor uses it only when `CAPACITOR_WORKERS_EXPERIMENT=1` is explicitly set during sync. No extra dependency, native code or public library API was added.
 
 Run from `demo/` after building the root library:
 
@@ -62,10 +62,37 @@ Browser upstream responses are controlled with Playwright context routing; reque
 
 Two test-transport differences were observed: the harness exposes the HTTP scheme used by its local connection, and compressed open-ended streams did not produce the expected first chunk in the initial probe. The streaming comparison therefore explicitly requests identity encoding. Cancelling the workerd client reader succeeded, but the source JavaScript cancel counter did not increment during the observation window. We do not claim identical server teardown callbacks based on that result.
 
-**Decision:** separate globals solve the tested inbound/outbound collision. Keep the experiment out of the library API until native WebViews and the transport lifecycle have been validated. This is evidence for a direction, not a finished replacement runtime.
+**Decision:** separate globals solve the tested inbound/outbound collision, but the current transferable-stream transport cannot be adopted as a general Capacitor runtime: it fails on the tested iOS 26.1 WKWebView. Keep it experimental. A subsequent design must address unsupported stream transfer and transport lifetime before public adoption.
 
-**Prototype limits:** request bodies are fully buffered; only URL/method/headers/body are transported; env must be structured-cloneable, does not preserve object identity, and cannot carry functions; error identity/stack are not preserved; ports/listeners are retained until explicit experiment disposal; abort after response headers is not integrated with response-body reads. No CORS bypass, cookie isolation, compatibility-date emulation or isolate resource limits are supplied. Hono/Express continue to be tested through the existing adapter, not through this runtime prototype. iOS/Android native WebViews have not been tested for the prototype.
+**Prototype limits:** request bodies are fully buffered; only URL/method/headers/body are transported; env must be structured-cloneable, does not preserve object identity, and cannot carry functions; error identity/stack are not preserved; ports/listeners are retained until explicit experiment disposal; abort after response headers is not integrated with response-body reads. No CORS bypass, cookie isolation, compatibility-date emulation or isolate resource limits are supplied. Hono/Express continue to be tested through the existing adapter, not through this runtime prototype. Native results and their limits are recorded below.
 
 ## Validation boundary
 
-Root Vitest checks runtime behavior. Demo Vitest checks the real Hono/Workers Express entries in local workerd. Chromium/WebKit tests check both framework contracts offline plus browser FormData, base URI, HEAD and immediate cancellation using the built library. The separate experiment adds four tests in each browser. This does not establish full runtime compatibility; native simulator/device validation was not repeated for this change.
+Root Vitest checks runtime behavior. Demo Vitest checks the real Hono/Workers Express entries in local workerd. Chromium/WebKit tests check both framework contracts offline plus browser FormData, base URI, HEAD and immediate cancellation using the built library. The separate experiment adds four tests in each browser. This does not establish full runtime compatibility. Native results cover the experimental transport, not a full rerun of every library API on physical devices.
+
+## Native WebView verification
+
+Installed and launched the bundled experimental app (no server.url) on 2026-10-16:
+
+| Environment | Result | Observation |
+| --- | --- | --- |
+| iOS 26.1 Simulator, iPhone 17 Pro | 0/5 | ReadableStream structuredClone/transfer throws DataCloneError; response-body transfers also fail. |
+| iOS 27.0 Simulator, iPhone 18 Pro | 5/5 | Capability check, outbound/concurrent calls/background completion, stream cancellation, pending abort, error/404 cases passed. |
+| Android 16 emulator, WebView 134.0.6998.135 | 5/5 | The same five cases passed. |
+
+The iOS versions above come from simctl runtime metadata (`SIMULATOR_RUNTIME_VERSION`), not the WebView user-agent string, which reported iPhone OS 18_7 in both tested simulators. These are observations for these environments, not a claim about the first iOS release supporting the feature. No physical device was tested.
+
+`native.ts` runs at startup only on a native Capacitor platform. Its outbound fetches read bundled `public/api/*.txt` fixtures via Capacitor's asset handler; matching paths would otherwise re-enter the UI adapter. Exact body markers rule out a SPA fallback false positive. This measures native fetch/global separation without an API server or cloud access, not external network/CORS behavior. Native waitUntil checks completion and absence of background errors; response independence uses the held-upstream tests in Playwright/workerd, not this native fixture.
+
+The iOS 26.1 abort and error/404 composite cases cannot establish those individual semantics: their response transport already fails. We record them as failed, not as proof that AbortController or error messages themselves are unsupported. We did not add a silent buffering fallback to hide the result.
+
+Reproduce from `demo/`:
+
+```sh
+npm run build:experiment
+CAPACITOR_WORKERS_EXPERIMENT=1 npx cap sync
+# Build/run the generated ios/ or android/ project with the native SDK.
+# The app displays the report and logs NATIVE_EXPERIMENT with JSON results.
+```
+
+Restore ordinary demo assets with `npm run build && npx cap sync` (without the environment variable). The checked-in native config defaults to the ordinary demo. Local ignored evidence: `demo/artifacts/native-experiment-{ios26,ios27,android}.{log,json,png}`. Screenshots were visually inspected and match the result logs.

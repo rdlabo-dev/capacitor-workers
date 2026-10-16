@@ -113,7 +113,7 @@ Android requires Java 21+. The demo bundles both Workers and runs 26 checks auto
 - CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. No native code was added beyond the generated Capacitor projects.
 - Client bundles are readable by users. Do not bundle server secrets or privileged backend logic. Unsupported operations do not automatically connect to cloud resources.
 
-Worker code currently shares the UI global scope: its own fetches inside the interception boundary re-enter the local Worker. Outbound I/O isolation is not implemented. See [the Hono/workerd investigation](docs/runtime-contract.md) for the runtime boundaries and the completed Dedicated Web Worker experiment. The prototype is isolated under `demo/experiments/`; run `npm run test:experiment` from `demo/`. It is not a public API or part of the native demo build.
+Worker code currently shares the UI global scope: its own fetches inside the interception boundary re-enter the local Worker. Outbound I/O isolation is not implemented. See [the Hono/workerd investigation](docs/runtime-contract.md) for the runtime boundaries and the completed Dedicated Web Worker experiment. The prototype is isolated under `demo/experiments/`; run `npm run test:experiment` from `demo/`. It is not a public API; native builds use it only with the explicit experiment flag documented there. Native testing found that its stream transfer succeeds on the tested iOS 27.0/Android 16 environments but fails on iOS 26.1, so it is not ready for general adoption.
 
 ## Next phases
 

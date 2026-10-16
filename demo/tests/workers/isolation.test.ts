@@ -11,14 +11,14 @@ const background: string[] = [];
 // Upstream exists only in tests; the mobile adapter still opens no HTTP server.
 const upstream = createServer(async (req, res) => {
   const url = new URL(req.url!, "http://upstream");
-  if (url.pathname === "/api/background") {
+  if (url.pathname === "/api/background.txt") {
     await gate;
     background.push(req.method!);
   }
   res.end(
-    url.pathname === "/api/upstream"
+    url.pathname === "/api/upstream.txt"
       ? `upstream:${url.searchParams.get("id")}`
-      : "done",
+      : "background completed",
   );
 });
 const harness = createTestHarness();

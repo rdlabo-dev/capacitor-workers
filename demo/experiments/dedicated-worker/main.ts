@@ -1,12 +1,13 @@
+import { Capacitor } from "@capacitor/core";
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
 import { createIsolatedWorker } from "./bridge";
 
-export function startExperiment(upstream: string) {
+export function startExperiment(upstream: string, baseURL = `${upstream}/api`) {
   const isolated = createIsolatedWorker();
   const errors: string[] = [];
   const runtime = capacitorWorkers({
     worker: isolated.handler,
-    baseURL: `${upstream}/api`,
+    baseURL,
     env: { UPSTREAM: upstream },
     onBackgroundError: (error) => errors.push(String(error)),
   });
@@ -26,3 +27,9 @@ declare global {
   }
 }
 window.startExperiment = startExperiment;
+
+if (Capacitor.isNativePlatform()) {
+  void import("./native").then(({ runNativeExperiment }) =>
+    runNativeExperiment(),
+  );
+}

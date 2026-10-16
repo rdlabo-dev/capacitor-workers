@@ -16,11 +16,16 @@ export default {
       case "/api/outbound": {
         await Promise.resolve();
         const upstream = await fetch(
-          `${env.UPSTREAM}/api/upstream?id=${url.searchParams.get("id")}`,
+          `${env.UPSTREAM}/api/upstream.txt?id=${url.searchParams.get("id")}`,
         );
         ctx.waitUntil(
           Promise.resolve().then(async () => {
-            await fetch(`${env.UPSTREAM}/api/background`, { method: "POST" });
+            const background = await fetch(
+              `${env.UPSTREAM}/api/background.txt`,
+              { method: "POST" },
+            );
+            if ((await background.text()) !== "background completed")
+              throw new Error("Unexpected background response");
           }),
         );
         return Response.json({
@@ -29,7 +34,7 @@ export default {
           dom: "document" in globalThis,
         });
       }
-      case "/api/upstream":
+      case "/api/upstream.txt":
         return new Response(
           "WRONG: outbound fetch re-entered the local handler",
           { status: 500 },

@@ -22,15 +22,15 @@ test("outbound fetch stays outside local dispatch across await, concurrency and 
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await context.route("**/api/upstream?*", (route) =>
+  await context.route("**/api/upstream.txt?*", (route) =>
     route.fulfill({
       body: `upstream:${new URL(route.request().url()).searchParams.get("id")}`,
     }),
   );
-  await context.route("**/api/background", async (route) => {
+  await context.route("**/api/background.txt", async (route) => {
     await gate;
     background.push(route.request().method());
-    await route.fulfill({ body: "done" });
+    await route.fulfill({ body: "background completed" });
   });
   try {
     const result = await page.evaluate(async () => {
