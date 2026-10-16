@@ -21,6 +21,7 @@ execFileSync(
     "install",
     join(temp, pack.filename),
     "vite@7.3.7",
+    "esbuild@0.28.2",
     "hono@4.13.13",
     "express@5.3.0",
     "@capacitor/core@8.5.3",
@@ -30,6 +31,8 @@ execFileSync(
 );
 // The consumer test needs web sources only, not native projects/build outputs.
 for (const entry of [
+  "build-tools",
+  "scripts/build-tools.mjs",
   "workers",
   "features",
   "public",
@@ -227,6 +230,40 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     )
   )
     throw new Error(JSON.stringify(features));
+  execFileSync(process.execPath, ["demo/scripts/build-tools.mjs"], {
+    cwd: temp,
+    stdio: "pipe",
+  });
+  await cp(
+    join(temp, "demo/artifacts/build-tools"),
+    join(temp, "build/build-tools"),
+    { recursive: true },
+  );
+  for (const build of [
+    "vite-hono",
+    "vite-express",
+    "esbuild-hono",
+    "esbuild-express",
+    "raw",
+  ]) {
+    for (const prefer of ["worker", "direct"]) {
+      await page.goto(`http://127.0.0.1:4189/build-tools/${build}/`);
+      await page.waitForFunction(
+        () => typeof window.runBuildTool === "function",
+      );
+      const report = await page.evaluate(
+        (prefer) => window.runBuildTool(prefer),
+        prefer,
+      );
+      if (
+        report.execution !== prefer ||
+        report.cases.length !== (build === "raw" ? 4 : 9) ||
+        report.cases.some((result) => !result.ok)
+      )
+        throw new Error(`${build}/${prefer}: ${JSON.stringify(report)}`);
+    }
+  }
+  console.log("Packed consumer: Vite/esbuild/browser ESM 10/10 passed");
   await mkdir(resolve(root, "artifacts"), { recursive: true });
   await writeFile(
     resolve(root, "artifacts/package-results.json"),

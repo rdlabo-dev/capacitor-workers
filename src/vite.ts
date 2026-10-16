@@ -1,13 +1,18 @@
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import {
+  configuredPath,
+  compatibilityAliases,
+  workerEntry,
+  workerSource,
+  compatPath,
+} from "./build/shared.js";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import type { Plugin, PluginOption } from "vite";
+import { normalizePath } from "vite";
 
 /** Add only to the Capacitor/browser build, never the Cloudflare build. */
 function compatibilityPlugins(): PluginOption[] {
-  const compat = (name: string) =>
-    fileURLToPath(new URL(`./compat/${name}.js`, import.meta.url));
   return [
     {
       name: "capacitor-workers",
@@ -15,16 +20,11 @@ function compatibilityPlugins(): PluginOption[] {
         // Express and cloudflare:node must share one prebundled HTTP registry.
         optimizeDeps: { include: ["cloudflare:node"] },
         resolve: {
-          alias: {
-            "cloudflare:node": compat("cloudflare-node"),
-            "cloudflare:workers": compat("cloudflare-workers"),
-            "node:async_hooks": compat("async-hooks"),
-            async_hooks: compat("async-hooks"),
-          },
+          alias: compatibilityAliases(),
         },
       }),
     },
-    ...nodePolyfills({ overrides: { http: compat("http") } }),
+    ...nodePolyfills({ overrides: { http: compatPath("http") } }),
   ];
 }
 
@@ -59,12 +59,7 @@ export default () => new Constructor();`;
       }
       if (entries.has(path) && !new URLSearchParams(query).has("worker")) {
         const original = entries.get(path)!;
-        const transport = fileURLToPath(
-          new URL("./isolated/transport.js", import.meta.url),
-        );
-        return `import worker from ${JSON.stringify(original)};
-import { serve } from ${JSON.stringify(transport)};
-serve(worker);`;
+        return workerEntry(original);
       }
     },
   };
@@ -83,6 +78,10 @@ export function capacitorWorkersPlugin(
   return [
     {
       name: "capacitor-workers-source",
+      enforce: "pre",
+      config: () => ({
+        optimizeDeps: { exclude: ["@rdlabo/capacitor-workers"] },
+      }),
       configResolved(config) {
         root = config.root;
       },
@@ -91,14 +90,15 @@ export function capacitorWorkersPlugin(
           return "\0virtual:capacitor-workers";
       },
       load(id) {
-        if (id !== "\0virtual:capacitor-workers") return;
+        const configured = id.split("?")[0] === normalizePath(configuredPath);
+        if (!configured && id !== "\0virtual:capacitor-workers") return;
+        if (configured && !options.worker) return;
         if (!options.worker)
           this.error(
             "Set worker in capacitorWorkersPlugin({ worker }) before importing virtual:capacitor-workers.",
           );
         const entry = resolve(root, options.worker);
-        return `import createWorker from ${JSON.stringify(entry + "?capacitor-worker")};
-export default { createWorker, loadDirect: async () => (await import(${JSON.stringify(entry)})).default };`;
+        return workerSource(entry, entry + "?capacitor-worker");
       },
     },
     workerEntryPlugin(entries),

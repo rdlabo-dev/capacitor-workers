@@ -15,7 +15,9 @@
     "build:experiment": "vite build --config experiments/dedicated-worker/vite.config.ts",
     "test:experiment": "npm run build:experiment && playwright test --config playwright.experiment.config.ts",
     "preview:experiment": "vite preview --config experiments/dedicated-worker/vite.config.ts --host 127.0.0.1 --port 4181 --strictPort",
-    "test:experiment:dev": "playwright test --config playwright.experiment-dev.config.ts"
+    "test:experiment:dev": "playwright test --config playwright.experiment-dev.config.ts",
+    "build:tools": "node scripts/build-tools.mjs",
+    "test:build-tools": "vitest run --config vitest.build.config.ts && npm run build:tools && playwright test --config playwright.build-tools.config.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",
@@ -34,6 +36,7 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
     "vitest": "^5.0.5",
-    "wrangler": "^4.151.0"
+    "wrangler": "^4.151.0",
+    "esbuild": "^0.28.2"
   }
 }
