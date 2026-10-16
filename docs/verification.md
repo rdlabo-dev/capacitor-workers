@@ -111,3 +111,9 @@ Manager review reproduced reentrant disposal from a synchronous abort listener. 
 Native runs cover the existing 28 checks plus 16 common feature cases. Before those common cases, the runner also verifies writes through the KV Worker survive feature disposal/recreation. The document reload test was performed in Playwright Chromium/WebKit, not via native application restart. Native logs, JSON and inspected screenshots are local ignored files under `demo/artifacts/native-kv-{ios26,android}.*`. Native assets were restored to the ordinary demo configuration after testing. No physical device, cloud deployment or npm publication was involved.
 
 This is a direct-execution, default-text subset. TTL, metadata, listing, binary/JSON/stream modes, isolated binding RPC and cloud synchronization remain unimplemented. Storage limits and semantics are documented in [KV setup and scope](kv.md).
+
+### Reusable contracts and implementation guardrails
+
+HTTP/KV suites now ship through `testing/fetch` and `testing/kv`, with the HTTP Worker fixture exported alongside its contract. The demo imports these public subpaths for both WebView and actual workerd verification. KV runtime validation remains inside `LocalStorageKV`; implementation-specific rejection, persistence and quota tests remain separate from the portable Workers contract. A deliberately broken write implementation confirms that the published KV suite detects lost writes.
+
+After extraction: library build, root/demo typecheck, 81 root tests, 26 local workerd tests, 26 Chromium/WebKit experiment tests and the fresh tarball consumer (direct 26, isolated 22, common 16) all pass. The consumer additionally typechecks both new public subpaths and rejects a KV implementation paired with the HTTP suite. Native binaries were not rebuilt for this test-module extraction; the 44/44 native results above describe the preceding KV implementation run.

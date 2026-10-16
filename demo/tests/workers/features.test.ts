@@ -7,7 +7,7 @@ import {
   runContract,
   type ContractResult,
 } from "@rdlabo/capacitor-workers/testing";
-import { fetchContract } from "../../features/contracts";
+import { fetchContract } from "@rdlabo/capacitor-workers/testing/fetch";
 const http = createTestHarness({
   workers: [
     {

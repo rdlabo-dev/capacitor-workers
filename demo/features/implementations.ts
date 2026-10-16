@@ -4,7 +4,11 @@ import {
   FeatureUnavailable,
   type FeatureScope,
 } from "@rdlabo/capacitor-workers/features";
-import { textFeature, wasmFeature, type TextStore } from "./contracts";
+import {
+  kvTextFeature as textFeature,
+  type KVTextNamespace as TextStore,
+} from "@rdlabo/capacitor-workers/features/kv";
+import { wasmFeature } from "./contracts";
 
 /** Test-owned persistent namespace, reset after each contract case. */
 export class PersistentText extends LocalStorageKV {

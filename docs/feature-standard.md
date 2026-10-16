@@ -97,8 +97,26 @@ Requirements are executable checks in `create`, not strings in an unverified cap
 
 Fetch connects through `@rdlabo/capacitor-workers/features/fetch`; both the feature adapter and existing `capacitorWorkers` installer use `createFetchRuntime`. The installer remains synchronous and application setup is unchanged. The existing fifteen fetch adapter cases and framework/transport tests remain as more detailed regression suites; the four portable HTTP cases do not replace them or claim that all URL/interception behavior exists in workerd.
 
-Demo definitions and contracts live in `demo/features/contracts.ts`. Environment-specific implementations live in `demo/features/implementations.ts`. The common runner itself never imports fetch, KV or WebAssembly. The workerd HTTP adapter converts the harness's Response type to a standard Response for this buffered HTTP profile; it makes no claim about streaming equivalence.
+Reusable HTTP and KV assertions are exported from `@rdlabo/capacitor-workers/testing/fetch` and `@rdlabo/capacitor-workers/testing/kv`. The HTTP subpath also exports `fetchContractWorker`, the neutral Worker fixture; mount it at `https://worker.invalid/api` when running `fetchContract`. The engine demonstration remains in `demo/features/contracts.ts`. Environment-specific implementations live in `demo/features/implementations.ts`. The common runner itself never imports fetch, KV or WebAssembly. The workerd HTTP adapter converts the harness's Response type to a standard Response for this buffered HTTP profile; it makes no claim about streaming equivalence.
 
 Workers KV uses the official [local binding facility](https://developers.cloudflare.com/kv/concepts/kv-bindings/), with a fresh key prefix per case and cleanup afterward. The shipped local text adapter uses Web Storage; its test wrapper deletes only test-owned keys. See [KV scope and usage](kv.md). No TTL, metadata, listing, cloud consistency or synchronization is claimed. The earlier delegated-binding branch is not merged by this change. Its transport can later supply an API through this same standard without adding a new test architecture.
 
 Completion for a new contribution: define the typed profile and scope, implement and declare coverage, add shared expectations, connect its real Workers reference, run type/unit/browser/native checks, and record actual supported environments and omissions. Do not edit the common runner to add another API category.
+
+## Implementation guardrails and reusable contracts
+
+Runtime checks belong to implementations. Validate inputs, reject unsupported options, detect missing facilities and propagate backend failures there, so application callers receive the same protections without importing testing code. The host remains responsible only for lifecycle and result handling; it contains no API-specific validation.
+
+Published contract suites check the portable behavior promised by a profile. Implementations and their real Workers references run the same suite. An operation supported by Workers but excluded by a local profile (for example TTL in the text KV subset) is tested as an implementation-specific rejection, not as a shared expectation that Workers must reject it. Backend persistence, quota and namespace isolation are also verified separately.
+
+```ts
+import { runContract, assertContract } from "@rdlabo/capacitor-workers/testing";
+import { kvTextContract } from "@rdlabo/capacitor-workers/testing/kv";
+
+// implementation is your FeatureImplementation<typeof kvTextFeature>.
+// Its create(scope) must prepare isolated test state and register its cleanup.
+const report = await runContract(implementation, kvTextContract);
+assertContract(report);
+```
+
+The KV suite writes the key `key` and assumes it is absent at the start of each case. Supply a test-only namespace and delete owned test data in the provider's cleanup. Never point it at application data. `runContract` creates a new feature scope per case, but does not clear externally owned storage. `assertContract` permits explicitly unsupported cases; require every case status to be `passed` when validating the entire profile. No test framework dependency or generic persistence fixture abstraction is introduced.

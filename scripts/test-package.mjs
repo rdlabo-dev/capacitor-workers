@@ -64,6 +64,14 @@ class ExampleRuntime extends FetchRuntime<{ label: string }> {
 }
 import { defineFeature, FeatureImplementation, openFeature } from "@rdlabo/capacitor-workers/features";
 import { runContract, type ContractSuite } from "@rdlabo/capacitor-workers/testing";
+import { kvTextContract } from "@rdlabo/capacitor-workers/testing/kv";
+import { fetchContract, fetchContractWorker } from "@rdlabo/capacitor-workers/testing/fetch";
+import { LocalStorageKV } from "@rdlabo/capacitor-workers/features/kv";
+import { FetchImplementation } from "@rdlabo/capacitor-workers/features/fetch";
+void runContract(new LocalStorageKV("consumer-test"), kvTextContract);
+void runContract(new FetchImplementation({ worker: fetchContractWorker, baseURL: "https://worker.invalid/api" }), fetchContract);
+// @ts-expect-error A KV implementation cannot use the HTTP contract.
+void runContract(new LocalStorageKV("consumer-test"), fetchContract);
 const feature = defineFeature<{ value(): number }>()("consumer", ["value"]);
 const incompatibleFeature = defineFeature<{ value(): string }>()("consumer", ["value"]);
 // @ts-expect-error Published declarations must preserve API invariance.

@@ -90,3 +90,30 @@ it("rejects oversized writes before changing storage", async () => {
   ).rejects.toThrow("25 MiB");
   expect(await api.get("key")).toBe("original");
 });
+
+it("runs the reusable contract against implementations and detects lost writes", async () => {
+  const { kvTextContract } = await import("../../src/testing/kv");
+  const { runContract, assertContract } =
+    await import("../../src/features/testing");
+  class IsolatedKV extends LocalStorageKV {
+    constructor() {
+      super("contract");
+    }
+    override create() {
+      return new LocalStorageKV("contract", storage()).create();
+    }
+  }
+  const passing = await runContract(new IsolatedKV(), kvTextContract);
+  assertContract(passing);
+  expect(passing.cases.every((test) => test.status === "passed")).toBe(true);
+  class LostWrites extends IsolatedKV {
+    override create() {
+      return { ...super.create(), put: async () => {} };
+    }
+  }
+  const failing = await runContract(new LostWrites(), kvTextContract);
+  expect(failing.cases.find((test) => test.id === "roundtrip")?.status).toBe(
+    "failed",
+  );
+  expect(() => assertContract(failing)).toThrow();
+});
