@@ -1,9 +1,12 @@
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
-import { startApp } from "./app";
 
 // The Worker entry is configured in vite.config.ts.
 const runtime = capacitorWorkers({
-  baseURL: "https://worker.invalid/api/",
+  baseURL: "https://worker.invalid/",
 });
 await runtime.ready;
-await startApp();
+
+// Render the HTML returned by the Worker's root route.
+const response = await fetch("/");
+if (!response.ok) throw new Error(`Worker returned ${response.status}`);
+document.querySelector("#page")!.innerHTML = await response.text();

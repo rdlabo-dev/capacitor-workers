@@ -224,8 +224,7 @@ The demo layout separates application sources from tooling:
 ```text
 demo/
   src/
-    main.ts         Runtime initialization
-    app.ts          Demo API call and result display
+    main.ts         Runtime initialization and Worker HTML display
     workers/        Hono and Express application code
   tests/
     validation/     Validation page, runners, contracts and Worker entries
@@ -237,9 +236,9 @@ demo/
   ios/, android/    Native projects
 ```
 
-`demo/src/main.ts` initializes the runtime, waits for it to be ready, and calls `startApp()` from `demo/src/app.ts`. The app makes a normal fetch call and displays the result. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and runtime tests.
+`demo/src/main.ts` initializes the runtime and displays the HTML returned by the Worker’s `/` route. Hono is selected by default; the commented Express entry in `demo/vite.config.ts` shows how to switch. Browser tests build and render the same demo with each Worker. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and runtime tests.
 
-Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The Hono and Express examples each implement only `/api/hello`. Broader routing and error-handling cases live in `demo/tests/fixtures/workers/{hono,express}/standard.ts`; runtime and binding fixtures also live under `demo/tests/fixtures/workers/`.
+Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The Hono and Express examples each render HTML at `/` and expose `/api/hello` as JSON. The initial HTML is inserted into the existing page; navigation, returned scripts, and form handling are not provided by this example. Broader routing and error-handling cases live in `demo/tests/fixtures/workers/{hono,express}/standard.ts`; runtime and binding fixtures also live under `demo/tests/fixtures/workers/`.
 
 ```sh
 cd demo
@@ -256,7 +255,7 @@ npm run test:build-tools
 
 `npm run test:build-tools` in `demo` checks Vite and esbuild with Hono and Express, plus unbundled browser ESM, in both execution modes on Chromium and WebKit.
 
-`test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have one check for the demo Worker and ten contract-fixture checks covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks package types plus both direct and isolated framework execution without handwritten aliases/polyfills.
+`test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have two checks for the demo Worker and ten contract-fixture checks covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks package types plus both direct and isolated framework execution without handwritten aliases/polyfills.
 
 ### Local Cloudflare development
 

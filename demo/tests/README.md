@@ -6,7 +6,7 @@ These files verify the library. For the setup to copy into your application, sta
 
 | Location                                     | Role                                                                                                                         |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `browser/`                                   | Playwright assertions for the minimal demo and compatibility page.                                                           |
+| `browser/`                                   | Playwright assertions for the same HTML demo with Hono/Express and for the compatibility page.                               |
 | `runtime/`                                   | Playwright assertions for Worker isolation, request/response transport, execution preference, and bindings.                  |
 | `build-tools/`                               | Playwright assertions for Vite, esbuild, and browser ES Modules.                                                             |
 | `build/`                                     | Vitest assertions for the esbuild watch integration.                                                                         |
@@ -19,6 +19,8 @@ These files verify the library. For the setup to copy into your application, sta
 | `playwright*.config.ts`, `vitest*.config.ts` | Test discovery, browsers, local servers, and runner settings.                                                                |
 
 The application under `src/` never imports these files. Tests may import the real demo Workers to check the same code a user runs.
+
+`vite.express.config.ts` imports the ordinary demo Vite config and replaces its Worker selection with Express. Its output is isolated under `artifacts/demo-express`; the default Hono demo remains in `dist`. `test:browser` builds both variants and checks their rendered HTML, so switching frameworks is tested using the actual demo sources.
 
 ## Commands
 

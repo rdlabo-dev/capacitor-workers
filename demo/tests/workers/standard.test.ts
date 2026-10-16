@@ -40,9 +40,17 @@ describe.each(
     });
   });
 
-  // The application example only implements hello. Remaining routes belong
-  // to the compatibility fixture, not the copyable demo.
-  if (kind === "demo") return;
+  if (kind === "demo") {
+    it("GET / renders HTML", async () => {
+      const response = await harness.fetch("/");
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toContain("text/html");
+      expect(await response.text()).toContain(
+        `<h1>Hello from ${framework === "hono" ? "Hono" : "Express"}</h1>`,
+      );
+    });
+    return;
+  }
 
   it("POST JSON + status", async () => {
     const body = { text: "日本語 🍷", value: 42 };

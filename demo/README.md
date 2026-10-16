@@ -7,31 +7,39 @@ This demo shows the setup needed to run an existing Workers Fetch Handler inside
 [vite.config.ts](vite.config.ts) points the plugin at the Worker entry:
 
 ```ts
-plugins: [capacitorWorkersPlugin({ worker: "./workers/hono/standard.ts" })];
+plugins: [
+  capacitorWorkersPlugin({
+    worker: "./workers/hono/standard.ts",
+    // To use Express, replace the line above with:
+    // worker: "./workers/express/standard.ts",
+  }),
+];
 ```
 
-The path is relative to the configured Vite root, `src/`. The example uses [the Hono Worker](src/workers/hono/standard.ts). To try [Workers Express](src/workers/express/standard.ts), change it to `./workers/express/standard.ts`.
+The path is relative to the configured Vite root, `src/`. The example uses [the Hono Worker](src/workers/hono/standard.ts). To try [Workers Express](src/workers/express/standard.ts), replace the active `worker` line with the commented `./workers/express/standard.ts` line in the Vite config. No changes to `main.ts` are needed.
 
-## 2. Initialize the runtime
+## 2. Initialize and display the Worker page
 
-[src/main.ts](src/main.ts) initializes the runtime, waits for it to be ready, and starts the app:
+[src/main.ts](src/main.ts) initializes the runtime and displays the HTML returned by `/`:
 
 ```ts
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
-import { startApp } from "./app";
 
 const runtime = capacitorWorkers({
-  baseURL: "https://worker.invalid/api/",
+  baseURL: "https://worker.invalid/",
 });
 await runtime.ready;
-await startApp();
+
+const response = await fetch("/");
+if (!response.ok) throw new Error(`Worker returned ${response.status}`);
+document.querySelector("#page")!.innerHTML = await response.text();
 ```
 
-`baseURL` selects the API origin and path handled locally. Here, `/api/...` calls run in the configured Worker without contacting `worker.invalid`.
+The page content is defined in the Worker: Hono uses `c.html()`, and Express uses `res.type("html").send()`. The same entry also exposes `/api/hello` as a JSON API. There is no separate frontend `app.ts` or custom startup function.
 
-## 3. Use ordinary fetch calls in your screen
+`baseURL` selects the origin and path handled locally. Its root path includes both `/` and `/api/hello`; these fetch calls do not contact `worker.invalid`.
 
-[src/app.ts](src/app.ts) calls `fetch("/api/hello?name=Capacitor")`, and displays the response. This is example screen code; it is not additional library configuration.
+This small example inserts the returned HTML into the existing document. It does not intercept browser navigation or form submissions, and scripts inside the returned HTML are not executed. Full HTML document/asset loading and Hono + TSX application navigation remain future work.
 
 ## Run the demo
 
@@ -58,7 +66,7 @@ npm run ios
 
 | Location                                                        | Purpose                                                                                                            |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `src/`                                                          | The example application: initialization, API call, and existing Workers.                                           |
+| `src/`                                                          | The example application: initialization, HTML display, and existing Workers.                                       |
 | `vite.config.ts`, `capacitor.config.ts`, `cloudflare.config.ts` | Build and execution settings for the example application.                                                          |
 | `ios/`, `android/`                                              | Capacitor native projects for running the example.                                                                 |
 | `tests/`                                                        | Automated checks, test-only apps and Workers, and test preparation scripts. See [the test guide](tests/README.md). |
@@ -66,6 +74,4 @@ npm run ios
 
 ## Compatibility tests
 
-`tests/validation/` and `tests/fixtures/` contain the validation app and test-only Workers. `npm run test:browser` builds and serves the validation app separately. The normal `src/` application and its build do not depend on these files. See the [repository testing guide](../README.md#development-and-testing) for the full test commands.
-
-This example currently demonstrates local API execution. Porting a complete Hono + TSX application, including initial HTML rendering, navigation and form submission, remains the next goal.
+`tests/validation/` and `tests/fixtures/` contain the validation app and test-only Workers. `npm run test:browser` builds the same demo once with Hono and once with Express, then checks both pages in Chromium and WebKit. The Express switch lives in [tests/vite.express.config.ts](tests/vite.express.config.ts), and assertions live in [tests/browser/demo.spec.ts](tests/browser/demo.spec.ts). The compatibility app is built and served separately. The normal `src/` application and its build do not depend on these files. See the [repository testing guide](../README.md#development-and-testing) for the full test commands.
