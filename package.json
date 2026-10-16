@@ -53,7 +53,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/build-document-assets.mjs",
     "test": "vitest run",
     "test:package": "node scripts/test-package.mjs",
     "typecheck": "tsc --noEmit"

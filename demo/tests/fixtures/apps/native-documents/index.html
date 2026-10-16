@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Native document bootstrap</title>
+  </head>
+  <body>
+    <script type="module">
+      if (location.protocol === "https:" || location.protocol === "http:") {
+        await navigator.serviceWorker.register("/document-sw.js");
+        await navigator.serviceWorker.ready;
+        if (!navigator.serviceWorker.controller)
+          await new Promise((resolve) =>
+            navigator.serviceWorker.addEventListener(
+              "controllerchange",
+              resolve,
+              { once: true },
+            ),
+          );
+      }
+      location.replace("/pages/home");
+    </script>
+  </body>
+</html>

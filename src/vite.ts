@@ -1,3 +1,4 @@
+import { documentAssets, listAssets } from "./build/documents.js";
 import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import {
@@ -57,6 +58,7 @@ export function capacitorWorkersPlugin(
 ): PluginOption[] {
   const entries = new Map<string, string>();
   let root: string;
+  let publicDir: string;
   return [
     {
       name: "capacitor-workers-source",
@@ -66,6 +68,22 @@ export function capacitorWorkersPlugin(
       }),
       configResolved(config) {
         root = config.root;
+        publicDir = config.publicDir;
+      },
+      generateBundle: {
+        order: "post",
+        async handler(_options, bundle) {
+          const files = [
+            ...Object.keys(bundle),
+            ...(publicDir ? await listAssets(publicDir) : []),
+          ];
+          const assets = await documentAssets(files);
+          for (const [fileName, source] of Object.entries(assets)) {
+            if (files.includes(fileName))
+              this.error("Document asset collision: " + fileName);
+            this.emitFile({ type: "asset", fileName, source });
+          }
+        },
       },
       async load(id) {
         if (

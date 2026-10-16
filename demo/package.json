@@ -19,7 +19,11 @@
     "build:tools": "node tests/scripts/build-tools.mjs",
     "test:build-tools": "vitest run --config tests/vitest.build.config.ts && npm run build:tools && playwright test --config tests/playwright.build-tools.config.ts",
     "build:validation": "vite build --config tests/validation/vite.config.ts",
-    "test:native:prepare": "node tests/scripts/prepare-native.mjs"
+    "test:native:prepare": "node tests/scripts/prepare-native.mjs",
+    "build:native-documents": "node tests/scripts/build-native-documents.mjs",
+    "test:documents": "npm run build:native-documents && playwright test --config tests/playwright.documents.config.ts",
+    "build:rendering": "vite build --config rendering/vite.config.ts",
+    "test:rendering:prepare": "node tests/scripts/prepare-public-documents.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",
