@@ -17,7 +17,7 @@ Implemented on branch `poc/workers-webview`. No cloud deployment or npm publicat
 
 Native builds use Capacitor 8.5.3 and bundled assets, without `server.url`. Both platform screenshots show the actual platform and every successful check. Native physical devices and cloud-hosted Workers were not tested. Local workerd is sufficient for this first API compatibility check; any later live deployment should use the requested `rdlabo-dev` account.
 
-The same `demo/workers/hono.ts` and `demo/workers/express.ts` files run in workerd and the WebView. Express is 5.3.0; Hono is 4.13.13. The common API contract covers GET/query, POST/Unicode JSON/status, nested routing, middleware headers, 404, error middleware, 204, HEAD and concurrent calls. WebView checks add Request input, URL mapping, env, waitUntil success/failure and original-fetch passthrough.
+The same `demo/workers/hono/standard.ts` and `demo/workers/express/standard.ts` files run in workerd and the WebView. Express is 5.3.0; Hono is 4.13.13. The common API contract covers GET/query, POST/Unicode JSON/status, nested routing, middleware headers, 404, error middleware, 204, HEAD and concurrent calls. WebView checks add Request input, URL mapping, env, waitUntil success/failure and original-fetch passthrough.
 
 `baseURL` points at `https://worker.invalid/api/` in the native demo. No API server can satisfy that URL. Browser tests observe zero network requests to the API and repeat the API contract with networking disabled.
 

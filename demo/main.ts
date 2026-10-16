@@ -1,6 +1,6 @@
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
-import hono from "./workers/hono";
-import express from "./workers/express";
+import hono from "./workers/hono/standard";
+import express from "./workers/express/standard";
 import { runContract, type Result } from "./contract";
 import { Capacitor } from "@capacitor/core";
 
