@@ -1,0 +1,6 @@
+{
+  "appId": "jp.rdlabo.capacitorworkers.upstream.honojsxssr",
+  "appName": "Upstream jsx-ssr",
+  "webDir": "dist",
+  "ios": { "packageManager": "SPM" }
+}

@@ -24,7 +24,11 @@
     "test:documents": "npm run build:native-documents && playwright test --config tests/playwright.documents.config.ts",
     "build:rendering": "vite build --config rendering/vite.config.ts",
     "test:native:package:prepare": "node tests/scripts/prepare-native-package.mjs",
-    "test:native:package": "node tests/scripts/run-native-package.mjs"
+    "test:native:package": "node tests/scripts/run-native-package.mjs",
+    "test:upstream:workerd": "vitest run --config tests/vitest.upstream.config.ts",
+    "test:upstream:prepare": "node tests/scripts/prepare-upstream.mjs",
+    "test:upstream": "node tests/scripts/run-upstream-native.mjs",
+    "test:upstream:browser": "vite build --config tests/upstream/hono-jsx-ssr/browser/vite.config.ts && playwright test --config tests/playwright.upstream.config.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

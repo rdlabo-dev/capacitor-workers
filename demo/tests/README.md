@@ -11,6 +11,7 @@ These files verify the library. For the setup to copy into your application, sta
 | `build-tools/`                               | Playwright assertions for Vite, esbuild, and browser ES Modules.                                                             |
 | `build/`                                     | Vitest assertions for the esbuild watch integration.                                                                         |
 | `workers/`                                   | Vitest checks running Hono, Express, and compatibility handlers in local workerd.                                            |
+| `upstream/`                                  | Verbatim upstream app checks (hono-jsx-ssr). Sources stay in the git-ignored artifacts clone; see each sample's README.      |
 | `validation/`                                | The compatibility page, shared check runners/contracts, and Worker entry wrappers.                                           |
 | `fixtures/apps/runtime/`                     | A browser/native test app that exposes runtime operations to the tests. Formerly the dedicated Worker experiment.            |
 | `fixtures/apps/build-tools/`                 | Test apps built with Vite/esbuild or loaded as plain JavaScript. These are build inputs, not build scripts.                  |
@@ -35,6 +36,17 @@ npm run test:runtime:dev
 npm run test:build-tools
 npm run test:workers
 npm run test:documents
+```
+
+Upstream checks fetch the pinned application first, then compare it in
+workerd and on native platforms — see `upstream/<sample>/README.md`:
+
+```sh
+npm run test:upstream:prepare -- hono-jsx-ssr
+npm run test:upstream:workerd
+npm run test:upstream:browser
+npm run test:upstream -- hono-jsx-ssr ios <simulator-UUID>
+# Or: npm run test:upstream -- hono-jsx-ssr android <emulator-serial>
 ```
 
 `test:runtime` builds the runtime test app before running Playwright. `test:build-tools` runs the build checks, prepares the build-tool test apps using `scripts/build-tools.mjs`, then runs Playwright. Their generated files go to `../artifacts/`.
