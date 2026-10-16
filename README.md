@@ -213,7 +213,7 @@ The demo layout separates application sources from tooling:
 demo/
   src/              Application entry, display, Workers and validation page
   public/           Static assets
-  tests/            Automated tests
+  tests/            Automated tests and Playwright/Vitest configurations
   experiments/      Dedicated Worker experiment
   build-tools/      Build integration fixtures
   scripts/          Build helpers
