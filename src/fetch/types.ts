@@ -33,6 +33,8 @@ export type ExecutionPreference = "worker" | "direct";
 export interface CapacitorWorkersOptions<Env> extends FetchRuntimeOptions<Env> {
   /** Optional when configured by the Vite or esbuild plugin. */
   worker?: WorkerHandler<Env> | WorkerFactory | WorkerSource<Env>;
+  /** Native document rendering: initial local path (for example "/"). Omit for Fetch-only use. */
+  render?: string;
   /** Applies to a configured WorkerSource; defaults to worker. */
   prefer?: ExecutionPreference;
 }

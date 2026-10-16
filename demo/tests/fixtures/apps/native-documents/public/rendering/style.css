@@ -1,0 +1,13 @@
+body {
+  font-family: system-ui;
+  padding: 16px;
+  background: #f3f4f6;
+  color: #111827;
+}
+#styled {
+  color: rgb(23, 101, 43);
+}
+img {
+  width: 16px;
+  height: 16px;
+}

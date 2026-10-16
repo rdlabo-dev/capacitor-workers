@@ -7,6 +7,8 @@ test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
   for (const file of [
     "index.js",
     "configured.js",
+    "documents/runtime.js",
+    "documents/host.js",
     "fetch/runtime.js",
     "fetch/worker-runtime.js",
     "isolated/bridge.js",

@@ -3,11 +3,25 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "types": ["node", "@rdlabo/capacitor-workers/cloudflare"]
+    "types": [
+      "node",
+      "@rdlabo/capacitor-workers/cloudflare"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx"
   },
-  "include": ["*.ts", "src", "tests"]
+  "include": [
+    "*.ts",
+    "src",
+    "tests",
+    "rendering"
+  ]
 }

@@ -1,3 +1,5 @@
+import { documentAssets, listAssets } from "./build/documents.js";
+import { writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,6 +67,25 @@ export function capacitorWorkersPlugin(
           "capacitorWorkersPlugin requires worker, bundle: true, format: 'esm', browser platform and outdir or outfile.",
         );
       const root = config.absWorkingDir ?? process.cwd();
+      // Written builds include document assets automatically. In-memory builds
+      // remain available for tooling and Fetch-only consumers.
+      if (config.write !== false) {
+        const outdir = resolve(root, config.outdir ?? dirname(config.outfile!));
+        build.onEnd(async (result) => {
+          if (result.errors.length) return;
+          const assets = await documentAssets(
+            (await listAssets(outdir)).filter(
+              (file) =>
+                ![
+                  "capacitor-workers-assets.json",
+                  "capacitor-workers-sw.js",
+                ].includes(file),
+            ),
+          );
+          for (const [file, source] of Object.entries(assets))
+            await writeFile(resolve(outdir, file), source);
+        });
+      }
       const entry = resolve(root, options.worker);
       await compatibilityPlugin().setup(build);
       build.onLoad({ filter: /configured\.js$/ }, ({ path }) => {

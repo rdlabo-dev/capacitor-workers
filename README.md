@@ -5,6 +5,7 @@ Small, experimental PoC: run a Cloudflare Workers fetch handler in a Capacitor W
 ## Contents
 
 - [Quick start](#quick-start)
+- [Native HTML rendering](#native-html-rendering)
 - [Build setup](#build-setup)
 - [Runtime behavior](#runtime-behavior)
 - [Workers Express](#workers-express)
@@ -32,6 +33,17 @@ await runtime.ready;
 // Existing UI calls stay unchanged.
 const response = await fetch("/api/hello");
 ```
+
+## Native HTML rendering
+
+The source API also supports `capacitorWorkers({ baseURL: "https://worker.invalid", render: "/" })`.
+The existing Worker returns complete HTML and owns page/API routing. The build
+plugin automatically emits the internal assets; no additional build option is needed.
+
+Native integration is implemented in this repository; automatic native plugin
+packaging is deferred. See the [API guide](docs/native-rendering-api.md) and
+[Hono/Express rendering demo](demo/rendering). Omitting `render` keeps the
+Fetch-only behavior described above.
 
 ## Build setup
 
