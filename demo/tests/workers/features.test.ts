@@ -80,7 +80,7 @@ it("runs the same state and engine contracts against actual workerd KV and WebAs
   ).json()) as ContractResult[];
   expect(reports).toHaveLength(2);
   for (const report of reports) assertContract(report);
-  expect(reports.map((report) => report.cases.length)).toEqual([16, 2]);
+  expect(reports.map((report) => report.cases.length)).toEqual([18, 2]);
   expect(
     reports
       .flatMap((report) => report.cases)

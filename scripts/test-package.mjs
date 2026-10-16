@@ -202,7 +202,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
   }
   const features = await page.evaluate(() => window.runFeatures());
   if (
-    features.flatMap((report) => report.cases).length !== 26 ||
+    features.flatMap((report) => report.cases).length !== 28 ||
     features.some(
       (report) =>
         report.errors.length ||
@@ -220,7 +220,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     ),
   );
   console.log(
-    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 26/26 passed (${temp})`,
+    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 28/28 passed (${temp})`,
   );
 } finally {
   await browser?.close();

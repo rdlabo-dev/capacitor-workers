@@ -92,7 +92,7 @@ Requirements are executable checks in `create`, not strings in an unverified cap
 | Profile                  | Local implementation                                                | Reference / verification                                                                  |
 | ------------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `fetch.basic`            | `FetchImplementation` connects existing direct or isolated runtimes | Same four HTTP cases run against an actual local workerd HTTP endpoint                    |
-| `kv.local.v1`             | `LocalStorageKV` persistent binding                                      | Same sixteen text/binary/stream/metadata/bulk/list/expiration cases run against an actual local Workers KV binding |
+| `kv.local.v1`             | `LocalStorageKV` persistent binding                                      | Same eighteen text/binary/stream/metadata/bulk/list/expiration/Unicode cases run against an actual local Workers KV binding |
 | `engine.wasm-validation` | Current engine's `WebAssembly.validate`                             | Same two valid/invalid-module cases run in workerd and WebViews                           |
 
 Fetch connects through `@rdlabo/capacitor-workers/features/fetch`; both the feature adapter and existing `capacitorWorkers` installer use `createFetchRuntime`. The installer remains synchronous and application setup is unchanged. The existing fifteen fetch adapter cases and framework/transport tests remain as more detailed regression suites; the four portable HTTP cases do not replace them or claim that all URL/interception behavior exists in workerd.

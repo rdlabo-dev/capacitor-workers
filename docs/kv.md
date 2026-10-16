@@ -42,7 +42,7 @@ The optional second constructor argument supplies an existing `Storage` backend 
 
 ## Compatibility and persistence boundaries
 
-The exported `kvContract` from `@rdlabo/capacitor-workers/testing/kv` exercises 16 shared behavior cases against the actual local workerd binding and the local adapter. `kvTextContract` remains available for its smaller `kv.text.v1` profile. Contract providers own an empty test namespace and its cleanup; never run them against application data. Expiration boundary and failure-path tests are separate; the workerd suite also waits for a real minimum TTL to elapse.
+The exported `kvContract` from `@rdlabo/capacitor-workers/testing/kv` exercises 18 shared behavior cases against the actual local workerd binding and the local adapter. `kvTextContract` remains available for its smaller `kv.text.v1` profile. Contract providers own an empty test namespace and its cleanup; never run them against application data. Expiration boundary and failure-path tests are separate; the workerd suite also waits for a real minimum TTL to elapse.
 
 This profile does not emulate global replication, eventual consistency, regional cache behavior, production rate limits or cloud synchronization. It does not claim identical error wording, distributed ordering or performance. Bulk response size checks are local serialized-result bounds, not a reproduction of Cloudflare's internal wire accounting. The KV API is implemented in TypeScript; it does not embed V8.
 
@@ -50,4 +50,4 @@ Storage belongs to the WebView origin. Clearing app/browser data, uninstalling, 
 
 Native tests use bundled assets in iOS/Android simulator/emulator WebViews. Document reload persistence is additionally verified in Chromium/WebKit. These do not establish physical-device or application-upgrade durability guarantees.
 
-References: Cloudflare [reading KV](https://developers.cloudflare.com/kv/api/read-key-value-pairs/), [writing KV](https://developers.cloudflare.com/kv/api/write-key-value-pairs/) and [listing keys](https://developers.cloudflare.com/kv/api/list-keys/). The missing-entry shape for bulk metadata is verified against actual workerd.
+References: Cloudflare [reading KV](https://developers.cloudflare.com/kv/api/read-key-value-pairs/), [writing KV](https://developers.cloudflare.com/kv/api/write-key-value-pairs/) and [listing keys](https://developers.cloudflare.com/kv/api/list-keys/). The missing-entry shape for bulk metadata and preservation of leading U+FEFF in keys are verified against actual workerd. Single-key text reads retain a leading BOM and single-key JSON reads reject BOM-prefixed JSON. Bulk reads strip the BOM, including before JSON parsing; this single/bulk distinction is reproduced and tested for both get and getWithMetadata.

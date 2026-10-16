@@ -8,7 +8,10 @@ import type {
   KVKey,
 } from "./types.js";
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
+// KV preserves leading U+FEFF in both keys and values.
+const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
+// Actual Workers bulk reads strip BOM, unlike single-key reads.
+const bulkDecoder = new TextDecoder();
 const maxValue = 25 * 1024 * 1024;
 function byteString(bytes: Uint8Array) {
   let result = "";
@@ -98,7 +101,11 @@ export class StorageNamespace {
     }
     return record;
   }
-  private read(record: RecordValue | null, type: KVReadType): KVValue<unknown> {
+  private read(
+    record: RecordValue | null,
+    type: KVReadType,
+    textDecoder = decoder,
+  ): KVValue<unknown> {
     if (!record) return { value: null, metadata: null };
     const bytes = decode(record.data);
     const value =
@@ -112,8 +119,8 @@ export class StorageNamespace {
               },
             })
           : type === "json"
-            ? JSON.parse(decoder.decode(bytes))
-            : decoder.decode(bytes);
+            ? JSON.parse(textDecoder.decode(bytes))
+            : textDecoder.decode(bytes);
     return { value, metadata: record.metadata ?? null };
   }
   private readMany(keys: string[], type: KVReadType, metadata: boolean) {
@@ -125,7 +132,8 @@ export class StorageNamespace {
     let bytes = 0;
     for (const key of keys) {
       const record = this.record(key);
-      const result = metadata && !record ? null : this.read(record, type);
+      const result =
+        metadata && !record ? null : this.read(record, type, bulkDecoder);
       const item = metadata ? result : result!.value;
       bytes += encoder.encode(JSON.stringify(item)).length;
       if (bytes > maxValue)

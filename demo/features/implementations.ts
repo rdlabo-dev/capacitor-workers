@@ -51,6 +51,8 @@ export class WorkersText extends FeatureImplementation<typeof kvFeature> {
       list: { status: "supported" },
       expiration: { status: "supported" },
       invalidJson: { status: "supported" },
+      unicodeKeys: { status: "supported" },
+      unicodeValues: { status: "supported" },
     });
   }
   async create(scope: FeatureScope): Promise<KVNamespace> {

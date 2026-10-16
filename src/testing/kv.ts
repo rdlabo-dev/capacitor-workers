@@ -153,6 +153,53 @@ export const kvContract: ContractSuite<typeof kvFeature> = {
       if (!ttl || Math.abs(ttl - expiration) > 5)
         throw new Error("Invalid TTL expiration");
     },
+    async unicodeKeys(api) {
+      await api.put("key", "plain");
+      await api.put("\uFEFFkey", "bom-prefix");
+      await api.put("\uFEFF", "bom-only");
+      equal(await api.get("key"), "plain");
+      equal(await api.get("\uFEFFkey"), "bom-prefix");
+      equal(await api.get("\uFEFF"), "bom-only");
+      equal(
+        (await api.list()).keys.map((key) => key.name),
+        ["key", "\uFEFF", "\uFEFFkey"],
+      );
+      equal(
+        (await api.list({ prefix: "\uFEFF" })).keys.map((key) => key.name),
+        ["\uFEFF", "\uFEFFkey"],
+      );
+      await api.delete("\uFEFFkey");
+      await api.delete("\uFEFF");
+      equal(await api.get("key"), "plain");
+      equal(
+        (await api.list()).keys.map((key) => key.name),
+        ["key"],
+      );
+    },
+    async unicodeValues(api) {
+      await api.put("key", "\uFEFFhello");
+      equal(await api.get("key"), "\uFEFFhello");
+      equal((await api.getWithMetadata("key")).value, "\uFEFFhello");
+      equal((await api.get(["key"])).get("key"), "hello");
+      equal((await api.getWithMetadata(["key"])).get("key")?.value, "hello");
+      await api.put("json", '\uFEFF{"a":1}');
+      for (const read of [
+        () => api.get("json", "json"),
+        () => api.getWithMetadata("json", "json"),
+      ]) {
+        let rejected = false;
+        try {
+          await read();
+        } catch {
+          rejected = true;
+        }
+        equal(rejected, true);
+      }
+      equal((await api.get(["json"], "json")).get("json"), { a: 1 });
+      equal((await api.getWithMetadata(["json"], "json")).get("json")?.value, {
+        a: 1,
+      });
+    },
     async invalidJson(api) {
       await api.put("key", "invalid json");
       let rejected = false;

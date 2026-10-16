@@ -42,6 +42,8 @@ export const kvFeature = defineFeature<KVNamespace>()("kv.local.v1", [
   "list",
   "expiration",
   "invalidJson",
+  "unicodeKeys",
+  "unicodeValues",
 ]);
 export class LocalStorageKV extends FeatureImplementation<typeof kvFeature> {
   constructor(
@@ -65,6 +67,8 @@ export class LocalStorageKV extends FeatureImplementation<typeof kvFeature> {
       list: { status: "supported" },
       expiration: { status: "supported" },
       invalidJson: { status: "supported" },
+      unicodeKeys: { status: "supported" },
+      unicodeValues: { status: "supported" },
     });
     if (typeof namespace !== "string" || !namespace.length)
       throw new TypeError("KV namespace must be a nonempty string");
