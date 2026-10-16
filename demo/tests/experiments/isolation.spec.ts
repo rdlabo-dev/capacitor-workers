@@ -1,6 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, context }, testInfo) => {
+  if (testInfo.title.includes("startup failure")) {
+    await context.route("**/assets/worker-*.js", (route) => route.abort());
+  }
   await page.goto("/");
   await page.waitForFunction(
     () => typeof window.startExperiment === "function",
@@ -138,4 +141,117 @@ test("transports handler errors and preserves local 404s", async ({ page }) => {
       return { error, status: (await fetch("/api/missing")).status };
     }),
   ).toEqual({ error: "TypeError", status: 404 });
+});
+
+test("remembers startup failure before the first request and never blocks drain", async ({
+  page,
+}) => {
+  const result = await page.evaluate(async () => {
+    const startup = await window.experiment.ready.then(
+      () => false,
+      () => true,
+    );
+    const rejected: boolean[] = [];
+    for (let i = 0; i < 2; i++) {
+      rejected.push(
+        await fetch("/api/echo").then(
+          () => false,
+          () => true,
+        ),
+      );
+    }
+    await window.experiment.drain();
+    return { startup, rejected, active: window.experiment.activeCalls };
+  });
+  expect(result).toEqual({ startup: true, rejected: [true, true], active: 0 });
+});
+
+test("preserves statusText and releases completed calls without disposing the worker", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(async () => {
+      for (let i = 0; i < 30; i++) {
+        const response = await fetch("/api/status");
+        if (
+          response.status !== 202 ||
+          response.statusText !== "Queued" ||
+          (await response.text()) !== "ok"
+        )
+          return false;
+      }
+      await window.experiment.drain();
+      return true;
+    }),
+  ).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => window.experiment.activeCalls))
+    .toBe(0);
+});
+
+test("aborting after headers errors the body and releases the source reader", async ({
+  page,
+}) => {
+  expect(
+    await page.evaluate(async () => {
+      const controller = new AbortController();
+      const reader = (
+        await fetch("/api/stream", { signal: controller.signal })
+      ).body!.getReader();
+      await reader.read();
+      const pending = reader.read().then(
+        () => "unexpected",
+        (error) => error.name,
+      );
+      controller.abort();
+      return pending;
+    }),
+  ).toBe("AbortError");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () => (await (await fetch("/api/stats")).json()).cancelled,
+      ),
+    )
+    .toBe(1);
+  await expect
+    .poll(() => page.evaluate(() => window.experiment.activeCalls))
+    .toBe(0);
+});
+
+test("preserves a null abort reason after headers", async ({ page }) => {
+  expect(
+    await page.evaluate(async () => {
+      const controller = new AbortController();
+      const reader = (
+        await fetch("/api/stream", { signal: controller.signal })
+      ).body!.getReader();
+      await reader.read();
+      const pending = reader.read().then(
+        () => "unexpected",
+        (error) => error,
+      );
+      controller.abort(null);
+      return pending;
+    }),
+  ).toBeNull();
+});
+
+test("rejects cancellation when the source cancel fails", async ({ page }) => {
+  expect(
+    await page.evaluate(async () => {
+      const reader = (await fetch("/api/cancel-failure")).body!.getReader();
+      // Also exercise cancellation while a pull is pending.
+      const pending = reader.read();
+      const result = await reader.cancel().then(
+        () => "unexpected",
+        (error) => error.message,
+      );
+      await pending;
+      return result;
+    }),
+  ).toContain("expected cancellation failure");
+  await expect
+    .poll(() => page.evaluate(() => window.experiment.activeCalls))
+    .toBe(0);
 });

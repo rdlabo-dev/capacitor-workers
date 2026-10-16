@@ -18,15 +18,14 @@ export async function runNativeExperiment() {
   const upstream = `${location.protocol}//${location.host}`;
   const tests: [string, () => Promise<void>][] = [
     [
-      "ReadableStream transfer capability",
+      "statusText + completed call cleanup",
       async () => {
-        const stream = new ReadableStream({
-          start(controller) {
-            controller.close();
-          },
-        });
-        const transferred = structuredClone(stream, { transfer: [stream] });
-        equal((await transferred.getReader().read()).done, true);
+        const response = await fetch("/api/status");
+        equal(response.status, 202);
+        equal(response.statusText, "Queued");
+        equal(await response.text(), "ok");
+        await window.experiment.drain();
+        await until(async () => window.experiment.activeCalls === 0);
       },
     ],
     [
@@ -57,7 +56,7 @@ export async function runNativeExperiment() {
       },
     ],
     [
-      "stream transfer + source cancellation",
+      "stream chunks + source cancellation",
       async () => {
         const reader = (await fetch("/api/stream")).body!.getReader();
         equal(new TextDecoder().decode((await reader.read()).value), "first");
@@ -84,6 +83,28 @@ export async function runNativeExperiment() {
         await until(
           async () => (await (await fetch("/api/stats")).json()).aborted === 1,
         );
+      },
+    ],
+    [
+      "abort after headers errors the body",
+      async () => {
+        const controller = new AbortController();
+        const reader = (
+          await fetch("/api/stream", { signal: controller.signal })
+        ).body!.getReader();
+        await reader.read();
+        const pending = reader.read().then(
+          () => "unexpected",
+          (error) => error,
+        );
+        controller.abort(null);
+        equal(await pending, null);
+        await until(
+          async () =>
+            (await (await fetch("/api/stats")).json()).cancelled === 1,
+        );
+        await window.experiment.drain();
+        await until(async () => window.experiment.activeCalls === 0);
       },
     ],
     [
@@ -127,6 +148,7 @@ export async function runNativeExperiment() {
     platform: Capacitor.getPlatform(),
     url: location.href,
     userAgent: navigator.userAgent,
+    transport: "message-port-chunks",
     results,
   };
   document.body.innerHTML = "<h1></h1><pre></pre>";

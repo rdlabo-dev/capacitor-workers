@@ -13,6 +13,10 @@ export function startExperiment(upstream: string, baseURL = `${upstream}/api`) {
   });
   return {
     errors,
+    ready: isolated.ready,
+    get activeCalls() {
+      return isolated.activeCalls;
+    },
     drain: runtime.drain,
     dispose() {
       runtime.dispose();

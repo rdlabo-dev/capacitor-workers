@@ -15,6 +15,8 @@ const upstream = createServer(async (req, res) => {
     await gate;
     background.push(req.method!);
   }
+  res.setHeader("content-type", "text/plain; charset=utf-8");
+  res.setHeader("x-content-type-options", "nosniff");
   res.end(
     url.pathname === "/api/upstream.txt"
       ? `upstream:${url.searchParams.get("id")}`

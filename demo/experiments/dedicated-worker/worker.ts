@@ -1,18 +1,56 @@
 import worker from "../../workers/runtime/isolation";
+import type { Command, Invocation, Reply } from "./protocol";
 
-// Experiment only: buffered upload, transferable response stream, explicit abort channel.
-self.onmessage = async ({ data }) => {
-  const { port, url, method, headers, body, env } = data as {
-    port: MessagePort;
-    url: string;
-    method: string;
-    headers: [string, string][];
-    body: ArrayBuffer | null;
-    env: { UPSTREAM: string };
-  };
+// Buffered upload, pull-driven response chunks: no transferable streams required.
+self.onmessage = async ({ data }: MessageEvent<Invocation>) => {
+  const { port, url, method, headers, body, env } = data;
   const controller = new AbortController();
-  port.onmessage = ({ data }) => {
-    if (data === "abort") controller.abort();
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let bodyDone = false;
+  let cancelling = false;
+  let backgroundDone = false;
+  const send = (reply: Reply) => port.postMessage(reply);
+  const close = () => {
+    if (bodyDone && backgroundDone) port.close();
+  };
+  const end = () => {
+    if (!bodyDone) {
+      bodyDone = true;
+      send({ type: "end" });
+    }
+    close();
+  };
+  const error = (cause: unknown) => {
+    bodyDone = true;
+    send({
+      type: "error",
+      name: cause instanceof Error ? cause.name : "Error",
+      message: String(cause),
+    });
+    close();
+  };
+  port.onmessage = async ({ data }: MessageEvent<Command>) => {
+    try {
+      if (data === "abort") {
+        controller.abort();
+        if (reader) {
+          cancelling = true;
+          await reader.cancel();
+          end();
+        }
+      } else if (data === "cancel") {
+        cancelling = true;
+        await reader?.cancel();
+        end();
+      } else if (data === "pull" && reader && !bodyDone) {
+        const chunk = await reader.read();
+        if (cancelling) return;
+        if (chunk.done) end();
+        else if (!bodyDone) send({ type: "chunk", value: chunk.value });
+      }
+    } catch (cause) {
+      error(cause);
+    }
   };
   const pending: Promise<unknown>[] = [];
   const errors: string[] = [];
@@ -26,29 +64,28 @@ self.onmessage = async ({ data }) => {
     const response = await worker.fetch(request, env, {
       waitUntil(promise) {
         pending.push(
-          promise.catch((error) => {
-            errors.push(String(error));
+          promise.catch((cause) => {
+            errors.push(String(cause));
           }),
         );
       },
     });
-    port.postMessage(
-      {
-        type: "response",
-        status: response.status,
-        headers: [...response.headers],
-        body: response.body,
-      },
-      response.body ? [response.body] : [],
-    );
-  } catch (error) {
-    port.postMessage({
-      type: "error",
-      name: (error as Error).name,
-      message: String(error),
+    reader = response.body?.getReader();
+    bodyDone = !reader;
+    send({
+      type: "response",
+      status: response.status,
+      statusText: response.statusText,
+      headers: [...response.headers],
+      hasBody: !!reader,
     });
+  } catch (cause) {
+    error(cause);
   } finally {
     while (pending.length) await Promise.all(pending.splice(0));
-    port.postMessage({ type: "done", errors });
+    send({ type: "done", errors });
+    backgroundDone = true;
+    close();
   }
 };
+self.postMessage({ type: "ready" });

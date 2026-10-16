@@ -43,6 +43,16 @@ export default {
         return new Response(await request.arrayBuffer(), {
           headers: { "x-runtime": "local" },
         });
+      case "/api/status":
+        return new Response("ok", { status: 202, statusText: "Queued" });
+      case "/api/cancel-failure":
+        return new Response(
+          new ReadableStream({
+            cancel() {
+              throw new Error("expected cancellation failure");
+            },
+          }),
+        );
       case "/api/stream":
         return new Response(
           new ReadableStream({
