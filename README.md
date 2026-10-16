@@ -2,7 +2,21 @@
 
 Small, experimental PoC: run a Cloudflare Workers fetch handler in a Capacitor WebView. No API server, socket listener, or remote fallback is used for intercepted requests. This executes JavaScript in the WebView; it does not compile Workers code to native code.
 
-## Usage
+## Contents
+
+- [Quick start](#quick-start)
+- [Build setup](#build-setup)
+- [Runtime behavior](#runtime-behavior)
+- [Workers Express](#workers-express)
+- [Local KV](#local-kv)
+- [Development and testing](#development-and-testing)
+- [Compatibility and limitations](#compatibility-and-limitations)
+- [Extending the library](#extending-the-library)
+- [Roadmap](#roadmap)
+
+## Quick start
+
+Configure your existing Worker entry with one of the [supported build setups](#build-setup), then initialize the runtime in your application:
 
 ```ts
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
@@ -19,6 +33,20 @@ await runtime.ready;
 const response = await fetch("/api/hello");
 ```
 
+## Build setup
+
+### Supported builds
+
+| Build              | Setup                                      | Input                                             |
+| ------------------ | ------------------------------------------ | ------------------------------------------------- |
+| Vite 7             | `@rdlabo/capacitor-workers/vite` plugin    | TypeScript / JavaScript, Workers Hono and Express |
+| esbuild 0.28       | `@rdlabo/capacitor-workers/esbuild` plugin | TypeScript / JavaScript, Workers Hono and Express |
+| Browser ES Modules | Explicit Worker source below               | Browser-compatible JavaScript only                |
+
+Other bundlers are not currently supported. Add these plugins only to the Capacitor/browser build, never the Cloudflare build.
+
+### Vite
+
 Add the plugin to the Capacitor/browser Vite configuration:
 
 ```ts
@@ -32,15 +60,7 @@ export default defineConfig({
 
 The plugin's `worker` path is relative to the Vite root (absolute paths also work). The plugin connects that entry to the normal package import; no special import or generated source file is needed in application code.
 
-### Supported builds
-
-| Build              | Setup                                      | Input                                             |
-| ------------------ | ------------------------------------------ | ------------------------------------------------- |
-| Vite 7             | `@rdlabo/capacitor-workers/vite` plugin    | TypeScript / JavaScript, Workers Hono and Express |
-| esbuild 0.28       | `@rdlabo/capacitor-workers/esbuild` plugin | TypeScript / JavaScript, Workers Hono and Express |
-| Browser ES Modules | Explicit Worker source below               | Browser-compatible JavaScript only                |
-
-Other bundlers are not currently supported. Add these plugins only to the Capacitor/browser build, never the Cloudflare build.
+### esbuild
 
 For esbuild, use the same application code with this build configuration:
 
@@ -59,6 +79,8 @@ await build({
 ```
 
 The entry path is relative to `absWorkingDir` (or the current directory). Serve the entire output directory, including emitted Worker assets and lazy direct modules. Worker compilation uses the plugin's compatibility transforms; additional application plugins are not applied to the Worker bundle. Browser ESM output with `outdir` or `outfile` is required. Worker entries must bundle into a single JavaScript file; separate CSS/file assets are not supported.
+
+### Browser ES Modules (no bundler)
 
 Without a bundler, copy the package's `dist` directory to your public `lib` directory and use ordinary relative ES Module imports:
 
@@ -88,29 +110,60 @@ serve(worker);
 
 `worker.js` exports the existing Fetch Handler. All its dependencies must also be browser-compatible ES Modules with resolvable URLs. This path does not transform TypeScript, bare npm imports, Node APIs or `cloudflare:*` imports. The public bundled equivalent of `lib/worker.js` is `@rdlabo/capacitor-workers/worker`.
 
+## Runtime behavior
+
 ### Execution preference
 
 The default `prefer: "worker"` starts a Dedicated Web Worker when available and the initial `env` contains only plain data. If Worker is absent, its constructor reports SecurityError/NotSupportedError, or `env` contains methods/custom prototypes/accessors (such as local KV bindings), it selects direct execution before handling any request. `prefer: "direct"` loads the direct module without creating a Worker. Direct execution is always the available baseline; a module or application error does not mean it is unavailable.
 
 Await `runtime.ready` and inspect `runtime.execution` (`"worker"` or `"direct"`) to observe the selection. Direct code is dynamically imported only when selected. Selection happens once: startup script failures and request errors are reported, never replayed in the other environment. This is not automatic detection of every unsupported Workers API. Changes to `env` after selection do not trigger reselection. Worker selection conservatively accepts primitives, ordinary objects and arrays (including cycles), without non-enumerable custom properties or null prototypes; other structured-clone-capable types currently select direct too.
 
-Existing direct-handler imports and `?capacitor-worker` factory imports remain supported for explicit low-level use. `prefer` requires the plugin configuration or an explicit source with both `createWorker` and `loadDirect`; it cannot manufacture a second candidate from a handler or factory alone.
+### Initialization and cleanup
 
-Installation synchronously intercepts fetch. Worker-mode requests wait for startup; matching requests during direct-module loading reject explicitly to prevent top-level-await deadlocks. Await `runtime.ready` before starting UI requests. The runtime cannot distinguish module-initialization calls from concurrent UI calls, so both reject while direct loading is in progress. `await runtime.ready` observes startup success/failure before rendering the UI. `await capacitorWorkers(...)` does **not** await Worker startup. Only one installation is supported; `runtime.dispose()` restores fetch and terminates the Dedicated Worker. Termination rejects unfinished local calls/body reads and releases background tracking.
+Installation synchronously intercepts fetch. Worker-mode requests wait for startup; matching requests during direct-module loading reject explicitly to prevent top-level-await deadlocks. Await `runtime.ready` before starting UI requests. The runtime cannot distinguish module-initialization calls from concurrent UI calls, so both reject while direct loading is in progress. `await runtime.ready` observes startup success/failure before rendering the UI. `await capacitorWorkers(...)` does **not** await Worker startup.
+
+Only one installation is supported; `runtime.dispose()` restores fetch and terminates the Dedicated Worker. Termination rejects unfinished local calls/body reads and releases background tracking.
+
+### Explicit Worker sources
+
+Existing direct-handler imports and `?capacitor-worker` factory imports remain supported for explicit low-level use. `prefer` requires the plugin configuration or an explicit source with both `createWorker` and `loadDirect`; it cannot manufacture a second candidate from a handler or factory alone.
 
 Direct imports remain supported: `import worker from "./worker"` supplies an object with `fetch` and runs in the UI global scope. Hono needs no build plugin in that mode; Workers Express still needs the compatibility plugin. Worker subrequests stay outside UI interception only when `runtime.execution` is `"worker"`; direct fallback shares the UI global environment.
 
 ### URL contract
 
-With the example base URL:
+#### How local requests are selected
 
-| Input                               | Behaviour                                                        |
-| ----------------------------------- | ---------------------------------------------------------------- |
-| `/api/hello?name=A`                 | Local Worker receives `https://api.example.com/api/hello?name=A` |
-| `https://api.example.com/api/hello` | Same local execution                                             |
-| `/api`                              | Local execution                                                  |
-| `/apiary`, `/outside.txt`           | Original fetch                                                   |
-| `https://other.example/api/hello`   | Original fetch                                                   |
+The adapter resolves the request URL, then checks both its address and path:
+
+1. The URL must match either the running app's **protocol and host** (including the port), or the origin configured in `baseURL`.
+2. Its path must equal the `baseURL` path boundary or be below it. For `/api/`, `/api` and `/api/hello` match; `/apiary` does not.
+
+Matching requests run in the local Worker. The adapter replaces the origin with the `baseURL` origin while preserving the path and query. The protocol alone does not select local execution: `capacitor://other-host/api/hello` does not match an app running at `capacitor://localhost`.
+
+With default Capacitor settings, `fetch("/api/hello")` follows these paths (assuming no `<base>` override and `baseURL: "https://api.example.com/api/"`):
+
+| Platform | Resolved app request URL          | URL received by the local Worker    |
+| -------- | --------------------------------- | ----------------------------------- |
+| iOS      | `capacitor://localhost/api/hello` | `https://api.example.com/api/hello` |
+| Android  | `https://localhost/api/hello`     | `https://api.example.com/api/hello` |
+
+The adapter uses the running app's URL, so custom scheme/hostname settings are handled by the same comparison. These are local JavaScript calls; neither row sends an HTTP request to `api.example.com`.
+
+#### Endpoint examples
+
+For `baseURL: "https://api.example.com/api/"` and an app served at `https://localhost/` (without a `<base>` override):
+
+| URL passed to `fetch()`             | Request endpoint                           | Handled by     |
+| ----------------------------------- | ------------------------------------------ | -------------- |
+| `/api/hello?name=A`                 | `https://api.example.com/api/hello?name=A` | Local Worker   |
+| `https://api.example.com/api/hello` | `https://api.example.com/api/hello`        | Local Worker   |
+| `/api`                              | `https://api.example.com/api`              | Local Worker   |
+| `/apiary`                           | `https://localhost/apiary`                 | Original fetch |
+| `/outside.txt`                      | `https://localhost/outside.txt`            | Original fetch |
+| `https://other.example/api/hello`   | `https://other.example/api/hello`          | Original fetch |
+
+For local execution, the endpoint is the URL received by the Worker's Fetch Handler; no HTTP request is sent to that server.
 
 The path in `baseURL` selects a boundary; it is **not appended** to request paths. Relative paths resolve against `document.baseURI` (including `<base href>`) first, falling back to location when no document exists. Same-app URLs (including iOS `capacitor://localhost`) in the boundary are remapped to the base origin. Set a root base URL only if you intend to intercept every same-app fetch. A local 404/500 or exception never retries against the network. UI navigation, XHR, images and other WebViews are not intercepted.
 
@@ -131,9 +184,15 @@ export default httpServerHandler({ port: 3000 });
 
 Use the plugin shown above only in the Capacitor/browser build, never the Cloudflare build. It supplies limited Node HTTP compatibility and browser polyfills. `listen(3000)` registers an in-memory handler, not a listening TCP port. The plugin supports both Hono and Workers Express; framework code stays unchanged.
 
-## Run this repository
+## Local KV
+
+Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent KV binding through `env` in direct execution, including read modes, bulk reads, metadata, expiration and paginated listing. See [setup, supported operations and limits](docs/kv.md). The named contract is tested against local workerd; cloud replication and isolated binding RPC remain outside its scope.
+
+## Development and testing
 
 Requires Node 22.12+, npm, and the native SDKs for native tests. Package publication, PR creation and cloud deployment are not part of these commands.
+
+### Library and package tests
 
 ```sh
 npm ci
@@ -143,6 +202,8 @@ npm test
 npx playwright install chromium
 npm run test:package
 ```
+
+### Demo and integration tests
 
 The validation app is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
 
@@ -158,15 +219,18 @@ npm run test:browser
 npm run test:workers
 npm run test:experiment
 npm run test:experiment:dev
+npm run test:build-tools
 ```
 
 `npm run test:build-tools` in `demo` checks Vite and esbuild with Hono and Express, plus unbundled browser ESM, in both execution modes on Chromium and WebKit.
 
 `test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have ten individually reported tests covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks package types plus both direct and isolated framework execution without handwritten aliases/polyfills.
 
+### Local Cloudflare development
+
 Cloudflare CLI configuration lives in `demo/cloudflare.config.ts`. From `demo/`, run `npx cf build --mode hono` or `npx cf build --mode express` to build the corresponding Worker; use `npx cf dev --mode hono` (or `express`) for local development. The installed `cf` version is currently beta. Wrangler remains a development dependency for the CLI's bundler and the test harness; the tests use the same Worker settings from `cloudflare.config.ts`.
 
-For the native demo:
+### Native demo
 
 Run the following from `demo/`, after building its web assets:
 
@@ -178,41 +242,53 @@ npm run android
 
 Android requires Java 21+. The demo bundles both Workers and runs 26 checks automatically. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
 
-## PoC compatibility boundary
+### Continuous integration
+
+CI runs library/type checks, real local workerd contracts, Chromium/WebKit integration and a fresh npm-tarball consumer. See [CI and merge protection](docs/ci.md) for the required `CI` check and the separate native verification boundary.
+
+## Compatibility and limitations
+
+### Supported API behavior
 
 - Covered: Hono and Workers Express GET/POST/HEAD, query and route params, JSON bodies, middleware, 404/500, concurrent requests, Request input, logical URLs.
 - Optional `env` injects caller-provided values into the fetch handler's second argument. In isolated mode it is cloned per call: functions/native plugin objects cannot be passed and object identity is not preserved. No Wrangler secrets or bindings are imported. `cloudflare:workers` named `env` access currently throws a diagnostic; it is not the injected argument.
 - `ctx.waitUntil()` tracks promises without delaying the response; `runtime.drain()` waits for them. Errors go to optional `onBackgroundError` (default: console). OS suspension/termination can stop pending work.
 - Fetch abort rejects the caller and propagates a signal. It cannot forcibly stop arbitrary application work. Cookies, redirect following, `Response.url` population, credentials/cache policies and CORS enforcement are not emulated for local calls.
+
+### Framework and platform limits
+
 - Express request/response bodies are buffered. Streaming, file serving, compressed request bodies, WebSockets, arbitrary Node APIs and async context propagation are not guaranteed. The compatibility layer is not a general Node runtime.
 - `passThroughOnException`, WorkerEntrypoint/RPC, Service Worker format and Workers-specific Request fields are unsupported. Worker evaluation must not fetch its own local endpoints before installation.
 - CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. No native code was added beyond the generated Capacitor projects.
+
+### Security and network boundaries
+
 - Client bundles are readable by users. Do not bundle server secrets or privileged backend logic. Unsupported operations do not automatically connect to cloud resources.
 
 With a direct Worker import, matching Worker subrequests can re-enter the UI handler. With Worker execution, outbound fetch uses the Dedicated Worker's own global fetch. It still follows WebView networking/CORS policies; this is not a workerd isolate or a CORS bypass.
 
+### Worker transport and resource lifetime
+
 The isolated transport buffers uploads and streams responses as pull-driven MessagePort chunks, including on iOS 26.1. It preserves status/statusText/headers, body cancellation, abort after headers and background completion. Invalid/used/locked responses and status-0 opaque/error responses reject. Errors retain name/message, not identity/stack; custom abort/cancel reasons are not transported to the Worker. Unconsumed response bodies retain resources until consumed, cancelled or disposed. `drain()` tracks background work, not body consumption.
+
+### Validation history
 
 See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/experiments/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native build remains selected using the documented experiment flag. No npm release has been published by this change.
 
-## Common feature standard
+## Extending the library
+
+### Common feature standard
 
 A typed feature definition connects implementations, coverage and contract tests across APIs, services and engine capabilities. The shared host owns initialization rollback and cleanup. See [the common feature standard](docs/feature-standard.md) for the implementation recipe and validation rules. The demo applies it to fetch, a local KV binding profile and WebAssembly validation.
 
-## Implementation pattern
+### Fetch implementation pattern
 
-Fetch implementations extend `FetchRuntime` and share one contract suite. See [the Fetch extension recipe](docs/fetch-pattern.md) for responsibilities, subclass hooks and required verification. Application setup remains `capacitorWorkers({ worker, baseURL })`.
+Fetch implementations extend `FetchRuntime` and share one contract suite. See [the Fetch extension recipe](docs/fetch-pattern.md) for responsibilities, subclass hooks and required verification. Application setup uses `capacitorWorkers({ baseURL })` with a configured build plugin, or an explicit `worker` option.
 
-## Next phases
+## Roadmap
 
 1. Keep the runtime small and validate Hono/Workers Express against real WebViews.
 2. Add binding adapters: D1 → Capacitor SQLite, KV → local storage provider, R2 → Capacitor Filesystem; compare API behaviour against Workers. Local data is independent of cloud data; sync is separate.
-3. Expand setup automation, compatibility and browser/Electron/Tauri execution. Preserve the explicit `worker` + `baseURL` entry API.
+3. Expand setup automation, compatibility and browser/Electron/Tauri execution. Keep Worker entry configuration and application initialization simple.
 
-The combined Hono + Express demo currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See `docs/verification.md` for measured results and limitations.
-
-### Local KV
-
-Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent KV binding through `env` in direct execution, including read modes, bulk reads, metadata, expiration and paginated listing. See [setup, supported operations and limits](docs/kv.md). The named contract is tested against local workerd; cloud replication and isolated binding RPC remain outside its scope.
-
-CI runs library/type checks, real local workerd contracts, Chromium/WebKit integration and a fresh npm-tarball consumer. See [CI and merge protection](docs/ci.md) for the required `CI` check and the separate native verification boundary.
+The combined Hono + Express demo currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See [verification results](docs/verification.md) for measured results and limitations.
