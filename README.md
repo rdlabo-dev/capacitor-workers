@@ -132,6 +132,26 @@ Direct imports remain supported: `import worker from "./worker"` supplies an obj
 
 ### URL contract
 
+#### How local requests are selected
+
+The adapter resolves the request URL, then checks both its address and path:
+
+1. The URL must match either the running app's **protocol and host** (including the port), or the origin configured in `baseURL`.
+2. Its path must equal the `baseURL` path boundary or be below it. For `/api/`, `/api` and `/api/hello` match; `/apiary` does not.
+
+Matching requests run in the local Worker. The adapter replaces the origin with the `baseURL` origin while preserving the path and query. The protocol alone does not select local execution: `capacitor://other-host/api/hello` does not match an app running at `capacitor://localhost`.
+
+With default Capacitor settings, `fetch("/api/hello")` follows these paths (assuming no `<base>` override and `baseURL: "https://api.example.com/api/"`):
+
+| Platform | Resolved app request URL          | URL received by the local Worker    |
+| -------- | --------------------------------- | ----------------------------------- |
+| iOS      | `capacitor://localhost/api/hello` | `https://api.example.com/api/hello` |
+| Android  | `https://localhost/api/hello`     | `https://api.example.com/api/hello` |
+
+The adapter uses the running app's URL, so custom scheme/hostname settings are handled by the same comparison. These are local JavaScript calls; neither row sends an HTTP request to `api.example.com`.
+
+#### Endpoint examples
+
 For `baseURL: "https://api.example.com/api/"` and an app served at `https://localhost/` (without a `<base>` override):
 
 | URL passed to `fetch()`             | Request endpoint                           | Handled by     |
