@@ -88,6 +88,28 @@ it("aborts the feature lifetime and shares one disposal promise", async () => {
   await first;
   expect(cleanup).toHaveBeenCalledOnce();
 });
+it("shares disposal with synchronous abort listeners and cleans up once", async () => {
+  let signal!: AbortSignal;
+  const cleanup = vi.fn(async () => {
+    await Promise.resolve();
+  });
+  class Reentrant extends Probe {
+    create(scope: FeatureScope) {
+      signal = scope.signal;
+      scope.defer(cleanup);
+      return { read: () => 1 };
+    }
+  }
+  const session = await openFeature(new Reentrant());
+  let reentrant: Promise<void> | undefined;
+  signal.addEventListener("abort", () => {
+    reentrant = session.dispose();
+  });
+  const first = session.dispose();
+  expect(reentrant).toBe(first);
+  await first;
+  expect(cleanup).toHaveBeenCalledOnce();
+});
 it("reports cleanup failures even when every assertion passed", async () => {
   class Broken extends Probe {
     create(scope: FeatureScope) {

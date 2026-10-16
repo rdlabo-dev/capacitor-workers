@@ -85,8 +85,7 @@ export async function openFeature<F extends Definition>(
   const dispose = () => {
     if (closing) return closing;
     closed = true;
-    controller.abort();
-    // Queue after assigning closing, so cleanup cannot start a second disposal.
+    // Establish closing before abort listeners or cleanup can reenter disposal.
     closing = Promise.resolve().then(async () => {
       const errors: unknown[] = [];
       for (const cleanup of cleanups.reverse()) {
@@ -100,6 +99,7 @@ export async function openFeature<F extends Definition>(
       if (errors.length)
         throw new AggregateError(errors, "Feature cleanup failed");
     });
+    controller.abort();
     return closing;
   };
   try {
