@@ -93,3 +93,51 @@ Three profiles exercise the same machinery: portable HTTP behavior (direct and i
 The 41 native checks are the existing 28 plus 13 common cases (HTTP 4 × direct/isolated, text storage 3, engine 2). Native checks use bundled assets; logs, JSON reports and visually inspected screenshots are saved locally as `demo/artifacts/native-feature-standard-{ios26,android}.{log,json,png}`. These are simulator/emulator WebViews, not physical devices. The KV reference uses local workerd storage, not a production Cloudflare namespace. The memory provider is a nonpersistent verification fixture. Normal demo assets/configuration were restored after native testing. No npm publication or cloud deployment was performed.
 
 Manager review reproduced reentrant disposal from a synchronous abort listener. The host now establishes its shared disposal promise before notifying listeners. A regression test verifies promise identity and exactly-once asynchronous cleanup; all 74 root tests, typechecking and build pass. Native results above predate this focused lifecycle correction; native builds were not repeated for it.
+
+## Persistent text KV — 2026-10-16
+
+`feat/kv-text-storage` adds `LocalStorageKV` and the exported `kv.text.v1` profile. The demo memory fixture is replaced by a persistent Web Storage adapter. Six shared cases run against that adapter and actual local workerd KV. An unchanged HTTP Worker is separately exercised with both bindings. Application data survives feature disposal; test fixtures delete only their own data.
+
+| Check | Result |
+| --- | --- |
+| Library build, root/demo typecheck | Passed |
+| Root Vitest | 80/80; includes namespace/lifecycle persistence, unsupported options, UTF-8 key bounds, capacity/access errors, unavailable storage and oversized writes |
+| Local workerd | 26/26, including Hono/Express, six shared KV cases and KV HTTP handler |
+| Chromium/WebKit experiment | 26/26, including Hono/Express and document reload persistence/isolation/deletion |
+| Fresh tarball consumer | Direct 26/26, isolated 22/22, common feature cases 16/16 |
+| iOS 26.1 Simulator | 44/44 |
+| Android 16 emulator / WebView 134 | 44/44 |
+
+Native runs cover the existing 28 checks plus 16 common feature cases. Before those common cases, the runner also verifies writes through the KV Worker survive feature disposal/recreation. The document reload test was performed in Playwright Chromium/WebKit, not via native application restart. Native logs, JSON and inspected screenshots are local ignored files under `demo/artifacts/native-kv-{ios26,android}.*`. Native assets were restored to the ordinary demo configuration after testing. No physical device, cloud deployment or npm publication was involved.
+
+This is a direct-execution, default-text subset. TTL, metadata, listing, binary/JSON/stream modes, isolated binding RPC and cloud synchronization remain unimplemented. Storage limits and semantics are documented in [KV setup and scope](kv.md).
+
+### Reusable contracts and implementation guardrails
+
+HTTP/KV suites now ship through `testing/fetch` and `testing/kv`, with the HTTP Worker fixture exported alongside its contract. The demo imports these public subpaths for both WebView and actual workerd verification. KV runtime validation remains inside `LocalStorageKV`; implementation-specific rejection, persistence and quota tests remain separate from the portable Workers contract. A deliberately broken write implementation confirms that the published KV suite detects lost writes.
+
+After extraction: library build, root/demo typecheck, 81 root tests, 26 local workerd tests, 26 Chromium/WebKit experiment tests and the fresh tarball consumer (direct 26, isolated 22, common 16) all pass. The consumer additionally typechecks both new public subpaths and rejects a KV implementation paired with the HTTP suite. Native binaries were not rebuilt for this test-module extraction; the 44/44 native results above describe the preceding KV implementation run.
+
+## Extended local KV binding — 2026-10-16
+
+The local KV profile now includes text/JSON/ArrayBuffer/stream reads, bulk text/JSON reads, getWithMetadata, byte/stream writes, metadata, expiration and cursor-based listing. Runtime validation remains in the storage implementation. The common host and runner require no KV-specific changes. Sixteen public contract cases run unchanged against local Web Storage and actual workerd KV.
+
+Workerd exposed a useful compatibility distinction: bulk getWithMetadata returns null for a missing map entry, whereas a missing single read returns an object with null value and metadata. Both implementation and types reflect this behavior; a separate regression distinguishes a stored JSON null from a missing record.
+
+Validation: library build and root/demo typechecks pass; root Vitest 87/87; actual local workerd 27/27 (including a 61-second wait confirming real expiration); Chromium/WebKit 26/26; packed consumer direct 26/26, isolated 22/22 and common features 26/26, with negative public type tests. Guardrail tests cover invalid options and bounds, stream failure/oversize cancellation without overwriting existing data, metadata snapshots, expiration boundaries, cursor scope and deletion while paging. Hono and Express checks remain explicit in workerd/browser/native suites.
+
+The completion boundary is the documented local binding API, not distributed Cloudflare semantics, cloud synchronization or isolated binding RPC. See [KV scope](kv.md). No production deployment or package publication was performed.
+
+Final native verification passes 54/54 on iOS 26.1 Simulator and Android 16 emulator (WebView 134): existing 28 plus 26 common cases. The runner additionally verifies bytes, metadata and expiration survive feature disposal/recreation together. Logs, JSON and inspected screenshots are saved locally as `demo/artifacts/native-kv-complete-{ios26,android}.*`. Android needed a clean Gradle build after Capacitor sync invalidated an intermediate resource file, followed by an app relaunch after emulator reconnection; the final result is from the rebuilt app. The emulator also displayed a System UI not responding dialog after the 54 passing checks; this is recorded as an environment limitation rather than a clean end-to-end UI stability result. Normal demo assets were restored after native builds. These results do not imply physical-device or cloud production validation.
+
+### Devin review follow-up
+
+Two findings were confirmed and fixed: TTL was measured before asynchronous stream collection, and read-mode parsing recursively accepted nested objects. Expiration options are now captured at invocation; relative TTL starts after collection/encoding, while an absolute expiration elapsed before publication rejects without replacing the old value. Read types are validated as scalar enum strings, including dynamic/cyclic malformed input.
+
+Regression checks cover a stream completed after 61 simulated seconds, mutation of the original options during collection, expired absolute writes preserving old value/metadata, and malformed modes across single/bulk get/getWithMetadata. Root tests 90/90, root/demo typechecking, library build, targeted Chromium/WebKit checks 4/4 and packed-consumer direct 26/26, isolated 22/22, common 26/26 pass. Native and workerd results above predate these focused guardrail fixes and were not repeated for this follow-up.
+
+### Manager and third-party acceptance review
+
+Both review cycles completed with no remaining revision requests after correcting leading U+FEFF handling. The manager independently reproduced identifier collisions: a BOM-prefixed key overwrote the ordinary key, and a BOM-only key broke listing. Third-party workerd probes also found distinct single/bulk value semantics. Keys retain BOM; single text reads retain it and single JSON reads reject BOM-prefixed JSON, while bulk text/JSON reads strip it. The implementation now uses separate single/bulk decoders.
+
+Two public contract cases cover key isolation, prefix listing and deletion, plus all eight single/bulk × text/JSON × get/getWithMetadata combinations. The KV profile now has 18 cases. Root tests 90/90, root/demo typechecking, library build, local workerd 27/27 (including the real TTL wait), Chromium/WebKit 26/26 and packed-consumer direct 26/26, isolated 22/22, common 28/28 pass on the final review fixes. Both reviewers independently rechecked the implementation and new contracts. Native runs were not repeated for these focused fixes; the earlier 54/54 results and Android System UI limitation remain historical evidence, not validation of the final BOM changes.

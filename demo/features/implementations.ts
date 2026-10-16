@@ -1,57 +1,64 @@
+import { LocalStorageKV } from "@rdlabo/capacitor-workers/features/kv";
 import {
   FeatureImplementation,
   FeatureUnavailable,
   type FeatureScope,
 } from "@rdlabo/capacitor-workers/features";
-import { textFeature, wasmFeature, type TextStore } from "./contracts";
+import {
+  kvFeature,
+  type KVNamespace,
+} from "@rdlabo/capacitor-workers/features/kv";
+import { wasmFeature } from "./contracts";
 
-/** Test-only memory provider: no persistence or full KV compatibility claim. */
-export class MemoryText extends FeatureImplementation<typeof textFeature> {
+/** Test-only cleanup. Production feature disposal never clears application data. */
+async function clear(kv: KVNamespace) {
+  const names: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const result = await kv.list({ cursor });
+    names.push(...result.keys.map((key) => key.name));
+    cursor = result.list_complete ? undefined : result.cursor;
+  } while (cursor);
+  await Promise.all(names.map((key) => kv.delete(key)));
+}
+export class PersistentText extends LocalStorageKV {
   constructor() {
-    super(textFeature, {
-      missing: { status: "supported" },
-      roundtrip: { status: "supported" },
-      delete: { status: "supported" },
-    });
+    super(`test-${crypto.randomUUID()}`);
   }
-  create(scope: FeatureScope): TextStore {
-    const data = new Map<string, string>();
-    scope.defer(() => data.clear());
-    return {
-      get: async (key) => data.get(key) ?? null,
-      put: async (key, value) => {
-        data.set(key, value);
-      },
-      delete: async (key) => {
-        data.delete(key);
-      },
-    };
+  override create(scope?: FeatureScope): KVNamespace {
+    const api = super.create();
+    scope?.defer(() => clear(api));
+    return api;
   }
 }
-
-/** Wrap an actual workerd KV binding with an isolated namespace for each case. */
-export class WorkersText extends FeatureImplementation<typeof textFeature> {
-  constructor(private readonly kv: TextStore) {
-    super(textFeature, {
+/** Owns the entire ephemeral workerd test binding, never a production namespace. */
+export class WorkersText extends FeatureImplementation<typeof kvFeature> {
+  constructor(private readonly kv: KVNamespace) {
+    super(kvFeature, {
       missing: { status: "supported" },
       roundtrip: { status: "supported" },
       delete: { status: "supported" },
+      overwrite: { status: "supported" },
+      empty: { status: "supported" },
+      deleteMissing: { status: "supported" },
+      readModes: { status: "supported" },
+      binary: { status: "supported" },
+      stream: { status: "supported" },
+      metadata: { status: "supported" },
+      missingMetadata: { status: "supported" },
+      bulk: { status: "supported" },
+      bulkMetadata: { status: "supported" },
+      list: { status: "supported" },
+      expiration: { status: "supported" },
+      invalidJson: { status: "supported" },
+      unicodeKeys: { status: "supported" },
+      unicodeValues: { status: "supported" },
     });
   }
-  create(scope: FeatureScope): TextStore {
-    const prefix = `${crypto.randomUUID()}:`;
-    const keys = new Set<string>();
-    scope.defer(async () => {
-      await Promise.all([...keys].map((key) => this.kv.delete(prefix + key)));
-    });
-    return {
-      get: (key) => this.kv.get(prefix + key),
-      put: (key, value) => {
-        keys.add(key);
-        return this.kv.put(prefix + key, value);
-      },
-      delete: (key) => this.kv.delete(prefix + key),
-    };
+  async create(scope: FeatureScope): Promise<KVNamespace> {
+    scope.defer(() => clear(this.kv));
+    await clear(this.kv);
+    return this.kv;
   }
 }
 

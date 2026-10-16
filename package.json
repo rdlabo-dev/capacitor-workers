@@ -30,6 +30,18 @@
     "./features/fetch": {
       "types": "./dist/features/fetch.d.ts",
       "import": "./dist/features/fetch.js"
+    },
+    "./features/kv": {
+      "types": "./dist/features/kv/index.d.ts",
+      "import": "./dist/features/kv/index.js"
+    },
+    "./testing/fetch": {
+      "types": "./dist/testing/fetch.d.ts",
+      "import": "./dist/testing/fetch.js"
+    },
+    "./testing/kv": {
+      "types": "./dist/testing/kv.d.ts",
+      "import": "./dist/testing/kv.js"
     }
   },
   "scripts": {

@@ -133,7 +133,7 @@ See [the runtime investigation and validation history](docs/runtime-contract.md)
 
 ## Common feature standard
 
-A typed feature definition connects implementations, coverage and contract tests across APIs, services and engine capabilities. The shared host owns initialization rollback and cleanup. See [the common feature standard](docs/feature-standard.md) for the implementation recipe and validation rules. The demo applies it to fetch, a minimal KV text profile and WebAssembly validation.
+A typed feature definition connects implementations, coverage and contract tests across APIs, services and engine capabilities. The shared host owns initialization rollback and cleanup. See [the common feature standard](docs/feature-standard.md) for the implementation recipe and validation rules. The demo applies it to fetch, a local KV binding profile and WebAssembly validation.
 
 ## Implementation pattern
 
@@ -146,3 +146,7 @@ Fetch implementations extend `FetchRuntime` and share one contract suite. See [t
 3. Expand setup automation, compatibility and browser/Electron/Tauri execution. Preserve the explicit `worker` + `baseURL` entry API.
 
 The combined Hono + Express demo currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See `docs/verification.md` for measured results and limitations.
+
+### Local KV
+
+Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent KV binding through `env` in direct execution, including read modes, bulk reads, metadata, expiration and paginated listing. See [setup, supported operations and limits](docs/kv.md). The named contract is tested against local workerd; cloud replication and isolated binding RPC remain outside its scope.

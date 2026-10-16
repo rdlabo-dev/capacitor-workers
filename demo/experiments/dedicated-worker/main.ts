@@ -1,3 +1,4 @@
+import { kvRequest } from "../../features/kv";
 import { runFeatures } from "../../features/run";
 import { Capacitor } from "@capacitor/core";
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
@@ -49,3 +50,5 @@ if (Capacitor.isNativePlatform()) {
 }
 
 window.runFeatures = runFeatures;
+
+Object.assign(window, { kvRequest });
