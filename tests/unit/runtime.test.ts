@@ -1,6 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { capacitorWorkers, FetchRuntime } from "../../src/index";
-let runtime: ReturnType<typeof capacitorWorkers> | undefined;
+let runtime:
+  | Pick<ReturnType<typeof capacitorWorkers>, "dispose" | "drain">
+  | undefined;
 const original = globalThis.fetch;
 afterEach(() => {
   runtime?.dispose();

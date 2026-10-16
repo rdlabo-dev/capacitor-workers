@@ -1,3 +1,4 @@
+import configuredWorker from "virtual:capacitor-workers";
 import { kvRequest } from "../../features/kv";
 import { runFeatures } from "../../features/run";
 import { Capacitor } from "@capacitor/core";
@@ -52,3 +53,59 @@ if (Capacitor.isNativePlatform()) {
 window.runFeatures = runFeatures;
 
 Object.assign(window, { kvRequest });
+
+export function startPreferred(
+  prefer?: "worker" | "direct",
+  env: Record<string, unknown> = {},
+) {
+  return capacitorWorkers({
+    worker: configuredWorker,
+    baseURL: "https://preferred.example/api",
+    prefer,
+    env,
+  });
+}
+declare global {
+  interface Window {
+    startPreferred: typeof startPreferred;
+  }
+}
+window.startPreferred = startPreferred;
+
+export function startStartupProbe() {
+  return capacitorWorkers({
+    baseURL: "https://preferred.example/api",
+    prefer: "direct",
+    worker: {
+      ...configuredWorker,
+      loadDirect: async () =>
+        (await import("../../workers/runtime/direct-startup-fetch")).default,
+    },
+  });
+}
+export function startDelayedDirect() {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const runtime = capacitorWorkers({
+    baseURL: "https://preferred.example/api",
+    prefer: "direct",
+    worker: {
+      ...configuredWorker,
+      loadDirect: async () => {
+        await gate;
+        return configuredWorker.loadDirect();
+      },
+    },
+  });
+  return { runtime, release };
+}
+declare global {
+  interface Window {
+    startStartupProbe: typeof startStartupProbe;
+    startDelayedDirect: typeof startDelayedDirect;
+  }
+}
+window.startStartupProbe = startStartupProbe;
+window.startDelayedDirect = startDelayedDirect;

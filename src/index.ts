@@ -4,13 +4,15 @@ export type {
   CapacitorWorkersOptions,
   WorkerContext,
   WorkerFactory,
+  WorkerSource,
+  ExecutionPreference,
   WorkerHandler,
 } from "./fetch/types.js";
 export { FetchRuntime, type FetchRuntimeOptions } from "./fetch/runtime.js";
 
 let installed = false;
 
-/** Installs synchronously; await is optional. Does not start a server. */
+/** Installs synchronously; await ready before local requests. Does not start a server. */
 export function capacitorWorkers<Env = Record<string, unknown>>(
   options: CapacitorWorkersOptions<Env>,
 ) {
@@ -23,6 +25,9 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
   let disposed = false;
   return {
     ready: runtime.ready,
+    get execution() {
+      return runtime.execution;
+    },
     drain: () => runtime.drain(),
     dispose() {
       if (disposed) return;

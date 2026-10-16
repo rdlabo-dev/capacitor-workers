@@ -163,7 +163,7 @@ try {
   await writeFile(
     join(temp, "vite.config.mjs"),
     `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin()],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
+export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin({worker:'../../workers/runtime/isolation.ts'})],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
   );
   execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
     cwd: temp,
@@ -200,6 +200,23 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
       await page.context().setOffline(false);
     }
   }
+  for (const prefer of ["worker", "direct"]) {
+    const result = await page.evaluate(async (prefer) => {
+      const runtime = window.startPreferred(prefer);
+      try {
+        await runtime.ready;
+        const response = await fetch("/api/echo", {
+          method: "POST",
+          body: "packed preference",
+        });
+        return { execution: runtime.execution, text: await response.text() };
+      } finally {
+        runtime.dispose();
+      }
+    }, prefer);
+    if (result.execution !== prefer || result.text !== "packed preference")
+      throw new Error(JSON.stringify(result));
+  }
   const features = await page.evaluate(() => window.runFeatures());
   if (
     features.flatMap((report) => report.cases).length !== 28 ||
@@ -220,7 +237,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     ),
   );
   console.log(
-    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 28/28 passed (${temp})`,
+    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 28/28, preferences 2/2 passed (${temp})`,
   );
 } finally {
   await browser?.close();

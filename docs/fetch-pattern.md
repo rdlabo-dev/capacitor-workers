@@ -62,3 +62,13 @@ The simulated Worker validates the protocol, not browser engine isolation. Compl
 ## Preserved limits
 
 The template preserves existing behavior rather than emulating all browser networking. Direct execution shares UI globals and env identity; isolated execution clones env and owns separate globals. Isolated startup, crashes and post-header abort belong to the transport. Direct disposal does not terminate arbitrary handler work, and retained direct fetch functions retain their previous behavior after uninstallation. `drain()` tracks background work, not unconsumed response bodies. No cloud fallback, cookie/CORS emulation, additional frameworks or binding services are introduced by this refactor.
+
+## Execution preference
+
+`capacitorWorkersPlugin({ worker: "./src/worker.ts" })` exposes `virtual:capacitor-workers`, a source containing a Worker factory and a lazy direct-module loader. Pass that source to `capacitorWorkers` with optional `prefer: "worker" | "direct"` (default `worker`). `PreferredFetchRuntime` uses the existing FetchRuntime contract and transport; the feature host uses the same selection function.
+
+Selection happens once, before dispatch. The worker preference falls back to direct if the Worker constructor is unavailable, the constructor reports platform SecurityError/NotSupportedError, or the initial env is not plain transportable data. Method-bearing bindings retain their identity in the direct environment. Accessors and custom prototypes are conservatively direct; this does not attempt to detect every Workers API or perfectly classify every structured-clone type. Direct code is not evaluated when worker execution is selected.
+
+`runtime.ready` observes startup and `runtime.execution` reports the selected mode. Script evaluation/startup failures, request failures and env mutations after selection never trigger replay or a mode switch. Direct fallback shares UI globals and can re-enter UI fetch interception on matching subrequests. The low-level handler/factory paths remain supported; providing `prefer` to either rejects because only one candidate is available.
+
+Direct-module loading cannot distinguish its own top-level fetch from a concurrent UI request. Matching calls during that phase reject explicitly instead of waiting on `ready`; applications must await `runtime.ready` before UI requests. Other URLs still use the original fetch. Worker-mode calls can wait for startup and abort without dispatch. Non-enumerable custom properties and null-prototype env objects select direct execution to preserve their semantics; intrinsic array length is allowed.
