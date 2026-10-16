@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import { test, expect } from "@playwright/test";
 
 test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
-  for (const file of ["index.js", "isolated/bridge.js"]) {
+  for (const file of [
+    "index.js",
+    "fetch/runtime.js",
+    "fetch/worker-runtime.js",
+    "isolated/bridge.js",
+  ]) {
     const source = await readFile(
       new URL("../../../dist/" + file, import.meta.url),
       "utf8",

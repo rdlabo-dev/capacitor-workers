@@ -1,4 +1,4 @@
-import type { WorkerHandler } from "../index.js";
+import type { WorkerHandler } from "../fetch/types.js";
 import type { Command, Invocation, Reply } from "./protocol.js";
 
 export function serve(worker: WorkerHandler<unknown>) {

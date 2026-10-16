@@ -1,4 +1,4 @@
-import type { WorkerHandler } from "../index.js";
+import type { WorkerHandler } from "../fetch/types.js";
 import type { Command, Reply } from "./protocol.js";
 
 /** Internal Dedicated Worker transport. */

@@ -131,6 +131,10 @@ The isolated transport buffers uploads and streams responses as pull-driven Mess
 
 See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/experiments/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native build remains selected using the documented experiment flag. No npm release has been published by this change.
 
+## Implementation pattern
+
+Fetch implementations extend `FetchRuntime` and share one contract suite. See [the Fetch extension recipe](docs/fetch-pattern.md) for responsibilities, subclass hooks and required verification. Application setup remains `capacitorWorkers({ worker, baseURL })`.
+
 ## Next phases
 
 1. Keep the runtime small and validate Hono/Workers Express against real WebViews.
