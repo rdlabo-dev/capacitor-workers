@@ -77,7 +77,7 @@ try {
   }
   assert.ok(result, "Native probe timed out");
   await writeFile(
-    `${cwd}/artifacts/${process.argv.includes("--public-api") ? "public" : "plugin"}-documents-${framework}-ios.json`,
+    `${cwd}/artifacts/plugin-documents-${framework}-ios.json`,
     JSON.stringify(result, null, 2),
   );
   assert.equal(result.framework.toLowerCase(), framework);

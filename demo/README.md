@@ -82,4 +82,5 @@ The separate [document-rendering experiment](../docs/document-rendering.md) inve
 
 [`rendering/`](rendering) is a separate example using `capacitorWorkers({ render: "/" })`.
 It contains complete Hono/TSX and Workers Express pages. Native distribution
-packaging is deferred; see its README and the source-integration tests.
+packaging uses iOS Swift Package Manager and Android Gradle; see its README and
+the independent tarball-install tests.

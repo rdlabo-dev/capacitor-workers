@@ -8,3 +8,6 @@ playwright-report/
 *.tgz
 .DS_Store
 artifacts/
+native/android/build/
+native/android/.gradle/
+.build/

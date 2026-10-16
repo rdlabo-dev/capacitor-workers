@@ -89,40 +89,37 @@ The overlay registrations and injected drivers belong only to these experiments.
 Automatic npm/SPM packaging and startup through the final public API remain a
 separate acceptance step.
 
-### Public native rendering API
+### Packaged native rendering API
 
-The public-entry fixture calls `capacitorWorkers({ baseURL, render })`; it does
-not call the experimental startup plugin. Native sources are taken directly from
-`native/` until distribution packaging is introduced.
+Build the library from the repository root, then from `demo/` run:
 
-1. Build the library, then run `npm run test:rendering:prepare -- hono` (or
-   `express`) from `demo/` and run `npx cap copy`.
-2. iOS: apply `tests/scripts/public-document-overlay.mjs`, then run
-   `tests/scripts/run-plugin-document-probe.mjs <UUID> hono|express --public-api`.
-   Restore the overlay afterwards. Reports are `artifacts/public-documents-*-ios.json`.
-3. Android: apply `tests/scripts/android-public-document-overlay.mjs`, run a
-   **clean** Gradle debug build, install and launch. Forward that process's WebView
-   CDP socket to port 9227 and run
-   `tests/scripts/capture-plugin-document-android.mjs hono|express --public-api`.
-   Restore the overlay afterwards. Reports/screenshots use the `public-documents-`
-   prefix. Remove the CDP forward when finished.
+```sh
+npm run test:native:package:prepare
+npm run test:native:package -- ios hono <simulator-UUID>
+npm run test:native:package -- ios express <simulator-UUID>
+npm run test:native:package -- android hono <emulator-serial>
+npm run test:native:package -- android express <emulator-serial>
+```
 
-Unlike the original experiment, the public-entry driver leaves the Android
-Service Worker registered. Force-stop and relaunch the app to verify startup
-with a persisted Service Worker, then capture a second fresh report. The driver
-clears its prior report on the first page and only exposes the final report element
-when navigation checks finish. Pass `--lifecycle` to the capture script after the final acceptance run to test
-Fetch-only migration through the public API in the current native WebView. It
-requires an existing document registration, checks its removal, verifies native
-handling of an unlisted missing asset and the new local API, then stops the old
-native host. Evidence is saved as `public-documents-*-android-lifecycle.json`.
-The optional `--cleanup` flag only unregisters transports for manual test cleanup;
-it does not substitute for the lifecycle assertions.
+The prepare command creates an independent consumer in the OS temporary directory,
+with its location recorded in `demo/artifacts/native-package-consumer.json`,
+installs `npm pack` output (not a repository symlink), adds ordinary Capacitor
+platforms, and asserts automatic registration on both platforms. Native source
+files and Activity/ViewController entry points are never patched. The runner
+builds and installs this consumer; it requires Xcode or the normal Android
+SDK/JDK environment. `ADB` and `ADB_SERVER_PORT` optionally select an adb binary
+and server. Reports and console/build logs are in the consumer's `artifacts/`.
 
-The native overlays only register the source integration and inject the test
-driver/report collection. No diagnostic hooks are in `native/` itself. Keep all
-three concerns separate: application code (`rendering/`), library implementation
-(`../src`, `../native`), and instrumentation (`tests/`).
+The test-only Worker wrapper adds the acceptance script to generated HTML.
+Both frameworks run 50 document/navigation/POST/redirect checks. iOS additionally
+calls public `dispose()` in the retained runtime host; Android verifies the
+native stop method from the visible page. The former iOS diagnostic fetch checks
+requiring script injection before page creation are not counted in this package
+acceptance suite. The underlying production native source is unmodified.
+
+The earlier public-source registration overlays have been removed. Historical
+custom-controller experiments remain under `tests/` for the investigation record;
+they are not the installation path.
 
 The document browser suite also tests shutdown and re-registration with the real
 production Service Worker in Chromium/WebKit. The lifecycle fixture and an asset
@@ -130,3 +127,7 @@ intentionally omitted from its manifest verify that already controlled clients
 return to native asset handling. Unit tests cover startup failure, disposal while
 registration is pending, legacy transport migration, unrelated registrations and
 persisted shutdown across Service Worker restarts.
+
+The historical Android probe retains `--lifecycle` to check Fetch-only migration,
+Service Worker registration cleanup and native asset fallback on the current client.
+These checks are separate from the packaged consumer’s native stop check.
