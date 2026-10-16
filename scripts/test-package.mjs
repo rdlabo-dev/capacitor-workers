@@ -54,7 +54,16 @@ await writeFile(
   join(temp, "consumer.ts"),
   `/// <reference types="@rdlabo/capacitor-workers/client" />
 import worker from "./demo/workers/hono/standard?capacitor-worker";
-import { capacitorWorkers } from "@rdlabo/capacitor-workers";
+import { capacitorWorkers, FetchRuntime, type WorkerContext } from "@rdlabo/capacitor-workers";
+class ExampleRuntime extends FetchRuntime<{ label: string }> {
+  protected dispatch(request: Request, env: { label: string }, ctx: WorkerContext) {
+    ctx.waitUntil(Promise.resolve());
+    return new Response(env.label + request.method);
+  }
+}
+const example = new ExampleRuntime({ baseURL: "https://worker.invalid/api", env: { label: "local" } });
+const fetcher: typeof fetch = example.fetch;
+example.dispose();
 const runtime = capacitorWorkers({worker, baseURL:"https://worker.invalid/api"});
 const ready: Promise<void> = runtime.ready;
 // @ts-expect-error Worker factories must not degrade to any.

@@ -50,3 +50,23 @@ The boundary review copied the library into a temporary directory without demo o
 The handwritten workerd runner has been replaced by Vitest 5.0.5 in the independent demo package. `npm run test:workers` reports 18 individual passing tests (nine each for Hono and Express), and demo typechecking passes. Wrangler's official `createTestHarness` manages runtime startup and cleanup without fixed ports or custom readiness polling. This run does not generate the historical `workerd-results.json`; use Vitest's reporters when machine-readable results are needed.
 
 Cloudflare CLI `cf` 1.0.0-beta.17 uses `demo/cloudflare.config.ts`, selecting Hono or Express with `--mode`. Both `cf build --mode hono` and `cf build --mode express` pass. The previous Wrangler JSON configuration files have been removed. Wrangler 4.151.0 remains the CLI's build engine and provides the test harness API. Native application code is unchanged by this migration.
+
+## Fetch execution pattern — 2026-10-16
+
+On `refactor/fetch-runtime-pattern`, the existing fetch behavior is now the `FetchRuntime` template. Direct and isolated implementations extend it; the public installer only selects and installs the runtime. No binding implementation is included in this branch. See [the extension recipe](fetch-pattern.md).
+
+The shared suite in `tests/contracts/fetch.ts` runs the same 15 cases against direct installation, isolated installation and a minimal subclass with no global installation. HEAD source cancellation is observed asynchronously so both execution modes satisfy the same observable contract. The pending-handler abort case now waits for actual handler entry before aborting. Implementation-specific tests remain separate.
+
+| Check                                 | Result                                                            |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| Root/demo typecheck and library build | Passed                                                            |
+| Root Vitest                           | 64/64, including 15 shared cases × 3 implementations              |
+| Local workerd                         | 23/23 (Hono 10, Express 10, isolation 3)                          |
+| Chromium/WebKit ordinary demo         | 4/4 Playwright cases                                              |
+| Chromium/WebKit isolated demo         | 22/22 Playwright cases                                            |
+| Vite development Hono/Express         | 4/4                                                               |
+| Fresh npm-tarball consumer            | Direct 26/26, isolated 22/22; FetchRuntime subclass types compile |
+| iOS 26.1 Simulator, iPhone 17 Pro     | 28/28                                                             |
+| Android 16 emulator, WebView 134      | 28/28                                                             |
+
+Native builds use bundled assets without a development server. Each native run covers six neutral runtime checks and eleven checks per unchanged Hono/Express Worker. Logs, JSON reports and visually inspected screenshots are local ignored files at `demo/artifacts/native-fetch-pattern-{ios26,android}.{log,json,png}`. This validates simulator/emulator WebViews, not physical devices or production Cloudflare. The ordinary demo assets/configuration were restored after the native experiment. No cloud deployment or package publication was performed.
