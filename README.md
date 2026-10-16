@@ -86,7 +86,9 @@ npm run test:browser
 npm run test:workers
 ```
 
-`test:workers` starts temporary **local workerd** processes and runs the same API contract used by the WebView. It is not a live Cloudflare deployment. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks both frameworks without handwritten aliases/polyfills.
+`test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have nine individually reported tests covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks both frameworks without handwritten aliases/polyfills.
+
+Cloudflare CLI configuration lives in `demo/cloudflare.config.ts`. From `demo/`, run `npx cf build --mode hono` or `npx cf build --mode express` to build the corresponding Worker; use `npx cf dev --mode hono` (or `express`) for local development. The installed `cf` version is currently beta. Wrangler remains a development dependency for the CLI's bundler and the test harness; the tests use the same Worker settings from `cloudflare.config.ts`.
 
 For the native demo:
 

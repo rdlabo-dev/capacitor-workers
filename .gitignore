@@ -4,6 +4,7 @@ demo-dist/
 test-results/
 playwright-report/
 .wrangler/
+.cloudflare/
 *.tgz
 .DS_Store
 artifacts/

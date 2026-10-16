@@ -44,3 +44,9 @@ Both cases have regression tests. Build, typecheck, seven unit tests, Chromium a
 The validation app now lives entirely under `demo/`, with independent dependencies and a lockfile (no npm workspace). Run browser/workerd tests and Capacitor commands from that directory. The library build, unit tests and npm tarball consumer test remain at the repository root. Historical artifact paths above refer to their original runs.
 
 The boundary review copied the library into a temporary directory without demo or native projects: clean install, build, typecheck and all seven unit tests passed. The independent demo then passed its own clean install, typecheck and build. Chromium/WebKit, local workerd and the fresh tarball consumer tests also passed after the separation. Capacitor sync regenerated Android's dependency path against `demo/node_modules`, not the root installation. The combined demo now measures approximately 1,533 kB minified (about 505–507 kB gzip), distinct from the initial measurements above.
+
+## Workers test runner and CLI migration
+
+The handwritten workerd runner has been replaced by Vitest 5.0.5 in the independent demo package. `npm run test:workers` reports 18 individual passing tests (nine each for Hono and Express), and demo typechecking passes. Wrangler's official `createTestHarness` manages runtime startup and cleanup without fixed ports or custom readiness polling. This run does not generate the historical `workerd-results.json`; use Vitest's reporters when machine-readable results are needed.
+
+Cloudflare CLI `cf` 1.0.0-beta.17 uses `demo/cloudflare.config.ts`, selecting Hono or Express with `--mode`. Both `cf build --mode hono` and `cf build --mode express` pass. The previous Wrangler JSON configuration files have been removed. Wrangler 4.151.0 remains the CLI's build engine and provides the test harness API. Native application code is unchanged by this migration.
