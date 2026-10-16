@@ -254,7 +254,7 @@ demo/
 
 `demo/src/main.ts` initializes the runtime and displays the HTML returned by the Worker’s `/` route. Hono is selected by default; the commented Express entry in `demo/vite.config.ts` shows how to switch. Browser tests build and render the same demo with each Worker. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and runtime tests.
 
-Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The Hono and Express examples each render HTML at `/` and expose `/api/hello` as JSON. The initial HTML is inserted into the existing page; navigation, returned scripts, and form handling are not provided by this example. Broader routing and error-handling cases live in `demo/tests/fixtures/workers/{hono,express}/standard.ts`; runtime and binding fixtures also live under `demo/tests/fixtures/workers/`.
+Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The Hono and Express examples each render HTML at `/` and expose `/api/hello` as JSON. This Fetch-only example inserts the returned HTML into the existing page; it is not the native document rendering path and does not provide navigation, returned-script execution, or form handling. For Worker-owned documents on iOS/Android, `demo/rendering` uses `capacitorWorkers({ baseURL, render: "/" })` with the packaged native integration. Broader routing and error-handling cases live in `demo/tests/fixtures/workers/{hono,express}/standard.ts`; runtime and binding fixtures also live under `demo/tests/fixtures/workers/`.
 
 ```sh
 cd demo
@@ -306,7 +306,7 @@ CI runs library/type checks, real local workerd contracts, Chromium/WebKit integ
 
 - Express request/response bodies are buffered. Streaming, file serving, compressed request bodies, WebSockets, arbitrary Node APIs and async context propagation are not guaranteed. The compatibility layer is not a general Node runtime.
 - `passThroughOnException`, WorkerEntrypoint/RPC, Service Worker format and Workers-specific Request fields are unsupported. Worker evaluation must not fetch its own local endpoints before installation.
-- CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. No native code was added beyond the generated Capacitor projects.
+- CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. The Fetch-only path adds no native code beyond the generated Capacitor projects. The `render` option's native document integration ships its own packaged plugin sources (iOS SPM / Android Gradle); it is native-only and does not run in a plain browser.
 
 ### Security and network boundaries
 

@@ -165,3 +165,18 @@ Validation after correction: root/demo typechecks, build, 102 unit tests, Chromi
 The examples under `demo/src/workers/{hono,express}/standard.ts` return HTML at `/` and JSON at `/api/hello`. Browser tests build the same demo with each Worker selection; local workerd checks both example endpoints. Broader routing, middleware, errors, and response-semantics checks use the separate contract Workers under `demo/tests/fixtures/workers/` in both workerd and WebView/browser verification apps.
 
 After this separation and the HTML example update, the browser suite passed 8 tests and the local workerd suite passed 31 tests. These results do not replace the historical native evidence above: native OS launch was not rerun for this PR. The demo currently inserts returned HTML into an existing document; full document loading, returned script execution, navigation, and form submission remain separate work.
+
+## Packaged native lifecycle — 2026-10-17
+
+Verified on `test/packaged-native-lifecycle`, based on `4b88028b4eb49dbecc669dc9293586e745951895`, with uncommitted test/documentation changes. Production TypeScript and native sources are unchanged from that commit. The independent consumer installs the npm tarball with Capacitor 8.5.3; no native source overlays are applied.
+
+| Environment | Hono | Workers Express |
+| --- | --- | --- |
+| iOS 26.1 Simulator | 50/50 + all lifecycle stages | 50/50 + all lifecycle stages |
+| Android 16 emulator, WebView 155.0.8059.43 | 50/50 + all lifecycle stages | 50/50 + all lifecycle stages |
+
+Each run verifies background/foreground, process termination/relaunch, updated Worker and static assets installed without deleting app data, and shutdown/reinitialization. iOS uses public `dispose()` and startup from the retained host; Android uses native stop and Service Worker bootstrap, followed by Fetch-only migration/registration cleanup/native asset fallback. The runner backgrounds the app before termination to allow WebView storage to persist; abrupt crashes and power loss are not covered. Physical devices and native execution in CI are not claimed.
+
+The final four reports and console/build logs are local artifacts in `/private/tmp/claude/capacitor-workers-native-package-hiXuCf/artifacts/`, named `{ios,android}-{hono,express}.json` and corresponding logs. `demo/artifacts/native-package-consumer.json` points to the consumer; see [the test guide](../demo/tests/README.md#packaged-native-rendering-api) for reproduction commands. All four reports contain no failed acceptance cases and passing background/relaunch/update/reinit/complete stages.
+
+Review-time checks: root/demo typechecking, library build, all 132 unit tests, changed JavaScript syntax checks, and `git diff --check` pass. Native results above are from the final lifecycle test code, before this documentation-only record was added.
