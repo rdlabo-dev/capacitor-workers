@@ -23,7 +23,8 @@
     "build:native-documents": "node tests/scripts/build-native-documents.mjs",
     "test:documents": "npm run build:native-documents && playwright test --config tests/playwright.documents.config.ts",
     "build:rendering": "vite build --config rendering/vite.config.ts",
-    "test:rendering:prepare": "node tests/scripts/prepare-public-documents.mjs"
+    "test:native:package:prepare": "node tests/scripts/prepare-native-package.mjs",
+    "test:native:package": "node tests/scripts/run-native-package.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

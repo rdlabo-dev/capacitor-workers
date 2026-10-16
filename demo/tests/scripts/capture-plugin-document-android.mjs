@@ -42,12 +42,7 @@ try {
   )
     throw new Error(JSON.stringify(state));
   const prefix =
-    new URL(
-      process.argv.includes("--public-api")
-        ? "../../artifacts/public-documents-"
-        : "../../artifacts/plugin-documents-",
-      import.meta.url,
-    ).pathname +
+    new URL("../../artifacts/plugin-documents-", import.meta.url).pathname +
     framework +
     "-android";
   await writeFile(prefix + ".json", JSON.stringify(report, null, 2));

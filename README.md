@@ -40,8 +40,9 @@ The source API also supports `capacitorWorkers({ baseURL: "https://worker.invali
 The existing Worker returns complete HTML and owns page/API routing. The build
 plugin automatically emits the internal assets; no additional build option is needed.
 
-Native integration is implemented in this repository; automatic native plugin
-packaging is deferred. See the [API guide](docs/native-rendering-api.md) and
+Native integration is included in the package for Capacitor 8: iOS uses Swift
+Package Manager and Android uses Gradle. Build the web assets and run `npx cap sync`
+to register it automatically. CocoaPods integration is not included. See the [API guide](docs/native-rendering-api.md) and
 [Hono/Express rendering demo](demo/rendering). Omitting `render` keeps the
 Fetch-only behavior described above.
 

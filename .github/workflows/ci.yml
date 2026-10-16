@@ -85,6 +85,8 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:package
+      - name: Verify packed native plugin discovery
+        run: node demo/tests/scripts/prepare-native-package.mjs
 
   required:
     name: CI

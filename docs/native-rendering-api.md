@@ -1,9 +1,34 @@
 # Native document rendering through capacitorWorkers
 
-The source API is implemented and tested with the repository's native integration.
-Native npm/SPM/Gradle packaging is deliberately deferred. Installing the existing
-npm package alone does not yet install the native integration; startup reports a
-missing-plugin error rather than silently falling back to DOM replacement.
+The package includes the native connection for Capacitor 8 (verified with 8.5.3).
+iOS uses Swift Package Manager; Android uses Gradle. CocoaPods is not included in
+this PoC. No npm release is made by the packaging tests.
+
+## Installation
+
+Until a release is published, build and pack this repository:
+
+```sh
+npm ci
+npm run build
+npm pack
+```
+
+In a Capacitor application, install the resulting tarball, configure the Worker
+in the Vite/esbuild plugin, and call `capacitorWorkers({ baseURL, render: "/" })`.
+Build the web assets before synchronizing:
+
+```sh
+npm install /path/to/rdlabo-capacitor-workers-0.0.0-poc.1.tgz
+npm run build
+npx cap sync
+npx cap run ios # or android
+```
+
+The Capacitor CLI discovers and registers the native plugin. The application
+keeps its ordinary Activity/ViewController; no manual registration or copied
+native sources are needed. The browser Fetch-only API remains available without
+installing Capacitor.
 
 ## Application entry
 
@@ -31,7 +56,9 @@ adapter does not add an application router. Existing `worker`, `env`, `prefer`,
 `ready` means that the Worker and native connection are initialized. It does not
 mean all images or page scripts have finished loading. `await app.dispose()`
 releases the document connection and runtime. Fetch-only disposal remains synchronous except while Android is clearing a
-previous document registration. Startup errors restore the original fetch implementation.
+previous document registration. Document startup errors restore the original fetch
+implementation; Fetch-only Worker startup errors continue to reject local requests
+until explicit disposal.
 
 ## Build configuration
 
@@ -73,8 +100,8 @@ the automated asset integration currently covers Vite and esbuild.
   Worker forwards requests to that host and serves responses through normal
   browser navigation. The bootstrap executes again in the host, so application
   startup side effects should not be placed after or alongside runtime startup.
-- The package's native sources live under `native/`. Test overlays compile those
-  sources directly into the demo until packaging is added. Measurement/report
+- The package's native sources live under `native/`. `Package.swift` and the
+  Android library project are included in the npm tarball. Measurement/report
   hooks live under `demo/tests/`; they are not in the native implementation.
 
 No application Activity/ViewController replacement, iframe, Turbo, or HTML DOM
@@ -92,8 +119,8 @@ local POST submissions; named windows and iframe targets are not supported.
 
 The native host/child lifecycle, pending-request timeouts and explicit disposal
 are implemented. Physical devices, OS process termination/recovery, memory
-pressure, arbitrary third-party plugin lifecycle behavior, and native package
-installation are not covered by the simulator/emulator acceptance results.
+pressure and arbitrary third-party plugin lifecycle behavior are not covered by
+the simulator/emulator acceptance results.
 
 ## Demo and validation
 
@@ -106,30 +133,35 @@ restoration, disposal and routing. Service Worker tests cover POST bytes,
 redirect mapping and asset manifest changes after an update. Both Vite and
 esbuild build the public entry in `demo/tests/build/documents.test.ts`.
 
-The native acceptance app at `demo/tests/fixtures/apps/public-documents` calls
-`capacitorWorkers({ baseURL, render })`. It selects Hono or Express through the
-build plugin and uses the existing full document test driver. Native test wiring
-is temporary and restored after each run. See `demo/tests/README.md` for commands.
+The packaged native acceptance fixture at `demo/tests/fixtures/apps/packaged-native`
+calls the same public API. A test-only Worker wrapper adds the browser test driver
+to returned HTML. It is installed from a real tarball into an independent consumer,
+then uses ordinary `cap add`/`cap sync`. No native code or registration is patched.
+See `demo/tests/README.md` for reproduction commands.
 
-### Acceptance results
+### Packaged installation results
 
-Verified on 2026-10-16 through the public startup API:
+Verified on 2026-10-16 with Capacitor 8.5.3:
 
-| Target              | Hono  | Workers Express |
-| ------------------- | ----- | --------------- |
-| iOS 26.1 Simulator  | 65/65 | 65/65           |
-| Android 16 emulator | 50/50 | 50/50           |
+| Target                       | Hono                   | Workers Express        |
+| ---------------------------- | ---------------------- | ---------------------- |
+| iOS 26.1 Simulator (SPM)     | 50/50 + public dispose | 50/50 + public dispose |
+| Android 16 emulator (Gradle) | 50/50 + native stop    | 50/50 + native stop    |
 
-Android Hono also passed 50/50 with a persisted Service Worker after process
-restart and updated bundled assets. This caught and fixed a Vite hook-order issue
-where the generated Dedicated Worker asset was initially missing from the
-manifest. Build tests now require every emitted file to appear in the manifest.
+These checks cover HTML, scripts/assets, local API calls, fresh documents,
+navigation/history, GET/POST forms, local redirects, multipart files and a native
+CapacitorCookies call after navigation. iOS disposal is invoked from the retained
+runtime host. Android stop is invoked from the visible page.
 
-Additional checks: library tests 119/119, rendering builds 4/4 (Vite/esbuild ×
-Hono/Express), Workers tests 58/58, existing Fetch-only browser tests 8/8, and
-library/demo typechecks. Reports are saved locally under
-`demo/artifacts/public-documents-*`; native overlays and debug forwarding are
-removed after validation.
+CI verifies the tarball contents and automatic plugin discovery using a fresh
+consumer. Native compilation and simulator/emulator execution are local acceptance
+runs, not CI results. Reports and build/console logs are under the independent
+consumer's `artifacts/` directory outside the repository.
+
+The earlier source-integration probes included 15 extra iOS metadata/diagnostic
+checks requiring native script injection. Those results remain recorded in
+[the investigation](document-rendering.md); they are not counted as packaged
+installation checks.
 
 ### Shutdown and trust boundary
 
@@ -151,8 +183,5 @@ just like bundled HTML. Rendering is not a sandbox for untrusted HTML; applicati
 must escape untrusted values and must not render arbitrary remote HTML as trusted
 application pages. This trust model applies to both iOS and Android.
 
-Lifecycle follow-up validation: library tests 130/130; build tests 7/7;
-Fetch-only browser regression 8/8; document browser suite 66 successes and six
-expected WebKit comparison failures. Android 16 again passed Hono 50/50 and
-Express 50/50, with native Fetch-only migration/registration cleanup checks.
-The iOS native bridge was unchanged and was not rerun for this follow-up.
+Library tests 132/132 and the existing Fetch-only/browser and package suites
+remain regression checks. See the repository test scripts for their scope.
