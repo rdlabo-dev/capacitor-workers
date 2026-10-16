@@ -1,6 +1,8 @@
 # PoC verification — 2026-10-16
 
-Implemented on branch `poc/workers-webview`. No cloud deployment or npm publication was performed.
+This document records historical verification runs and subsequent implementation stages. Results and limitations belong to the stage where they are reported; they are not a single report for the current demo. See the [current demo guide](../demo/README.md) for its layout and commands.
+
+The initial PoC was implemented on branch `poc/workers-webview`. No cloud deployment or npm publication was performed.
 
 ## Results
 
@@ -17,9 +19,9 @@ Implemented on branch `poc/workers-webview`. No cloud deployment or npm publicat
 
 Native builds use Capacitor 8.5.3 and bundled assets, without `server.url`. Both platform screenshots show the actual platform and every successful check. Native physical devices and cloud-hosted Workers were not tested. Local workerd is sufficient for this first API compatibility check; any later live deployment should use the requested `rdlabo-dev` account.
 
-The same `demo/src/workers/hono/standard.ts` and `demo/src/workers/express/standard.ts` files run in workerd and the WebView. Express is 5.3.0; Hono is 4.13.13. The common API contract covers GET/query, POST/Unicode JSON/status, nested routing, middleware headers, 404, error middleware, 204, HEAD and concurrent calls. WebView checks add Request input, URL mapping, env, waitUntil success/failure and original-fetch passthrough.
+In that initial run, the same Hono and Express contract Workers ran in workerd and the WebView. Those handlers are now retained in `demo/tests/fixtures/workers/hono/standard.ts` and `demo/tests/fixtures/workers/express/standard.ts`. They are separate from the current minimal examples under `demo/src/workers/`. That run used Express 5.3.0 and Hono 4.13.13. The common API contract covered GET/query, POST/Unicode JSON/status, nested routing, middleware headers, 404, error middleware, 204, HEAD and concurrent calls. WebView checks added Request input, URL mapping, env, waitUntil success/failure and original-fetch passthrough.
 
-`baseURL` points at `https://worker.invalid/api/` in the native demo. No API server can satisfy that URL. Browser tests observe zero network requests to the API and repeat the API contract with networking disabled.
+In that native validation run, `baseURL` pointed at `https://worker.invalid/api/`. No API server can satisfy that URL. Browser tests observe zero network requests to the API and repeat the API contract with networking disabled.
 
 ## Findings
 
@@ -157,3 +159,9 @@ Android builds successfully. The emulator intermittently stopped responding to s
 Both reported defects were reproduced before correction: a dynamically imported module with top-level local `await fetch()` deadlocked `ready`, and non-enumerable/null-prototype env values incorrectly selected worker execution. During direct-module loading, matching requests now reject explicitly; applications must await `runtime.ready` before issuing UI requests. The runtime cannot distinguish initialization calls from concurrent UI calls. Non-enumerable custom properties and null-prototype objects select direct execution; ordinary array length remains eligible.
 
 Validation after correction: root/demo typechecks, build, 102 unit tests, Chromium/WebKit production 38/38 and development 16/16, packed consumer direct 26/26, isolated 22/22, common 28/28 and preferences 2/2. Tests use real top-level-await modules, preserve env values/identity in direct mode, verify ordinary arrays/cycles through the actual structured-clone transport, and verify aborted startup requests never replay. Native tests were not repeated for this follow-up; the preceding iOS 59/59 result is historical, and Android execution remains unverified.
+
+## Demo and validation separation — current PR
+
+The examples under `demo/src/workers/{hono,express}/standard.ts` return HTML at `/` and JSON at `/api/hello`. Browser tests build the same demo with each Worker selection; local workerd checks both example endpoints. Broader routing, middleware, errors, and response-semantics checks use the separate contract Workers under `demo/tests/fixtures/workers/` in both workerd and WebView/browser verification apps.
+
+After this separation and the HTML example update, the browser suite passed 8 tests and the local workerd suite passed 31 tests. These results do not replace the historical native evidence above: native OS launch was not rerun for this PR. The demo currently inserts returned HTML into an existing document; full document loading, returned script execution, navigation, and form submission remain separate work.
