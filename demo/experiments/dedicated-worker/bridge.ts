@@ -2,10 +2,7 @@ import type { WorkerHandler } from "@rdlabo/capacitor-workers";
 import type { Command, Reply } from "./protocol";
 
 /** Experimental transport; not a public library API. */
-export function createIsolatedWorker() {
-  const worker = new Worker(new URL("./worker.ts", import.meta.url), {
-    type: "module",
-  });
+export function createIsolatedWorker(worker: Worker) {
   const calls = new Set<(error: Error) => void>();
   let failure: Error | undefined;
   let started!: () => void;

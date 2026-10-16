@@ -43,11 +43,15 @@ export async function runContract(
     equal(await (await fetcher(`${base}/items/123`)).json(), { id: "123" });
   });
   await check("Middleware header", async () => {
-    if (!(await fetcher(`${base}/hello`)).headers.get("x-framework"))
+    const response = await fetcher(`${base}/hello`);
+    await response.text();
+    if (!response.headers.get("x-framework"))
       throw new Error("Missing middleware header");
   });
   await check("404", async () => {
-    equal((await fetcher(`${base}/missing`)).status, 404);
+    const response = await fetcher(`${base}/missing`);
+    equal(response.status, 404);
+    await response.text();
   });
   await check("Error middleware", async () => {
     const res = await fetcher(`${base}/error`);

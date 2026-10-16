@@ -78,6 +78,15 @@ describe.each(["hono", "express"] as const)(
       expect(await response.text()).toBe("");
     });
 
+    it("Logical URL", async () => {
+      const response = await harness.fetch("/api/url?name=Capacitor");
+      const value = (await response.json()) as { url: string };
+      const url = new URL(value.url);
+      // Harness chooses the local connection origin; compare the preserved path/query.
+      expect(url.pathname + url.search).toBe("/api/url?name=Capacitor");
+      expect(response.headers.get("x-framework")).toBe(framework);
+    });
+
     it("Concurrent requests", async () => {
       const values = await Promise.all(
         ["a", "b", "c"].map(async (id) =>
