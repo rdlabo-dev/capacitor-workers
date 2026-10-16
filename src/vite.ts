@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
@@ -70,9 +71,36 @@ serve(worker);`;
 }
 
 /** Add only to the Capacitor/browser build, never the Cloudflare build. */
-export function capacitorWorkersPlugin(): PluginOption[] {
+export interface CapacitorWorkersPluginOptions {
+  /** Workers application entry, relative to Vite root or an absolute path. */
+  worker?: string;
+}
+export function capacitorWorkersPlugin(
+  options: CapacitorWorkersPluginOptions = {},
+): PluginOption[] {
   const entries = new Map<string, string>();
+  let root: string;
   return [
+    {
+      name: "capacitor-workers-source",
+      configResolved(config) {
+        root = config.root;
+      },
+      resolveId(id) {
+        if (id === "virtual:capacitor-workers")
+          return "\0virtual:capacitor-workers";
+      },
+      load(id) {
+        if (id !== "\0virtual:capacitor-workers") return;
+        if (!options.worker)
+          this.error(
+            "Set worker in capacitorWorkersPlugin({ worker }) before importing virtual:capacitor-workers.",
+          );
+        const entry = resolve(root, options.worker);
+        return `import createWorker from ${JSON.stringify(entry + "?capacitor-worker")};
+export default { createWorker, loadDirect: async () => (await import(${JSON.stringify(entry)})).default };`;
+      },
+    },
     workerEntryPlugin(entries),
     {
       name: "capacitor-workers-worker-build",

@@ -1,3 +1,4 @@
+import configuredWorker from "virtual:capacitor-workers";
 import { kvRequest } from "../../features/kv";
 import { runFeatures } from "../../features/run";
 import { Capacitor } from "@capacitor/core";
@@ -52,3 +53,21 @@ if (Capacitor.isNativePlatform()) {
 window.runFeatures = runFeatures;
 
 Object.assign(window, { kvRequest });
+
+export function startPreferred(
+  prefer?: "worker" | "direct",
+  env: Record<string, unknown> = {},
+) {
+  return capacitorWorkers({
+    worker: configuredWorker,
+    baseURL: "https://preferred.example/api",
+    prefer,
+    env,
+  });
+}
+declare global {
+  interface Window {
+    startPreferred: typeof startPreferred;
+  }
+}
+window.startPreferred = startPreferred;

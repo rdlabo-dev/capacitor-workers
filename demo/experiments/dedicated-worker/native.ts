@@ -207,6 +207,49 @@ export async function runNativeExperiment() {
   } finally {
     clearTimeout(featureTimer);
   }
+  for (const mode of ["worker", "direct", "binding"] as const) {
+    const runtime = window.startPreferred(
+      mode === "direct" ? "direct" : undefined,
+      mode === "binding"
+        ? {
+            KV: {
+              get() {
+                return "value";
+              },
+            },
+          }
+        : {},
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        runtime.ready,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("Preference initialization timed out")),
+            8000,
+          );
+        }),
+      ]);
+      equal(runtime.execution, mode === "worker" ? "worker" : "direct");
+      equal(
+        await (
+          await fetch("/api/echo", { method: "POST", body: "preference 🍷" })
+        ).text(),
+        "preference 🍷",
+      );
+      results.push({ name: `preference: ${mode}`, ok: true });
+    } catch (error) {
+      results.push({
+        name: `preference: ${mode}`,
+        ok: false,
+        error: String(error),
+      });
+    } finally {
+      clearTimeout(timer);
+      runtime.dispose();
+    }
+  }
   const report = {
     platform: Capacitor.getPlatform(),
     url: location.href,
