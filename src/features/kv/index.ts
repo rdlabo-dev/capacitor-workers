@@ -19,7 +19,7 @@ export const kvTextFeature = defineFeature<KVTextNamespace>()("kv.text.v1", [
   "deleteMissing",
 ]);
 
-export type { KVNamespace } from "./storage.js";
+export type { KVNamespace } from "./types.js";
 export type {
   KVReadOptions,
   KVReadType,
@@ -29,7 +29,8 @@ export type {
   KVValue,
   KVKey,
 } from "./types.js";
-import { StorageNamespace, type KVNamespace } from "./storage.js";
+import { StorageNamespace } from "./storage.js";
+import type { KVNamespace } from "./types.js";
 export const kvFeature = defineFeature<KVNamespace>()("kv.local.v1", [
   ...kvTextFeature.cases,
   "readModes",
