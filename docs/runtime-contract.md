@@ -39,7 +39,7 @@ Temporarily restoring global fetch while a handler runs would break concurrent U
 
 `demo/tests/fixtures/apps/runtime/` imports the unchanged `demo/tests/fixtures/workers/runtime/isolation.ts` module in a separate global scope. The UI installs the existing adapter with a small MessageChannel bridge. Requests carry URL/method/headers and a buffered body; responses carry status/statusText/headers and pull-driven Uint8Array chunks over the port. The receiving ReadableStream requests one chunk per pull, without transferring a stream or buffering the whole response. Abort messages reach an AbortController inside the worker. Background completion is reported separately from the response and participates in runtime.drain(). Ports and abort listeners are released after body termination and background completion. Worker startup failure is retained and rejects current/subsequent requests. Abort after headers errors the receiving body; source cancellation failures reject reader.cancel().
 
-The experimental page/build is separate from the normal demo. Capacitor uses it only when `CAPACITOR_WORKERS_EXPERIMENT=1` is explicitly set during sync. No extra dependency, native code or public library API was added.
+The experimental page/build is separate from the normal demo. To run it in Capacitor, the test preparation command builds it and copies its generated assets into `demo/dist/`; the normal Capacitor configuration stays unchanged. No extra dependency, native code or public library API was added.
 
 Run from `demo/` after building the root library:
 
@@ -89,13 +89,13 @@ The initial transfer-based run produced 0/5 on iOS 26.1 and 5/5 on iOS 27.0/Andr
 Reproduce from `demo/`:
 
 ```sh
-npm run build:runtime
-CAPACITOR_WORKERS_EXPERIMENT=1 npx cap sync
+npm run test:native:prepare -- runtime
+npm run sync
 # Build/run the generated ios/ or android/ project with the native SDK.
 # The app displays the report and logs NATIVE_EXPERIMENT with JSON results.
 ```
 
-Restore ordinary demo assets with `npm run build && npx cap sync` (without the environment variable). The checked-in native config defaults to the ordinary demo. Local ignored evidence: `demo/artifacts/native-experiment-{ios26,ios27,android}.{log,json,png}`. Screenshots were visually inspected and match the result logs.
+Restore ordinary demo assets with `npm run build && npm run sync`. The checked-in native config always uses `dist/`. Local ignored evidence: `demo/artifacts/native-experiment-{ios26,ios27,android}.{log,json,png}`. Screenshots were visually inspected and match the result logs.
 
 ## Hono / Workers Express follow-up
 

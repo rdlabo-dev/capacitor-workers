@@ -24,7 +24,7 @@ for (const framework of ["hono", "express"]) {
     chunkNames: "chunks/[name]-[hash]",
     plugins: [
       capacitorWorkersPlugin({
-        worker: `src/workers/${framework}/standard.ts`,
+        worker: `tests/fixtures/workers/${framework}/standard.ts`,
       }),
     ],
   });

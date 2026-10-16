@@ -36,4 +36,18 @@ npm run test:workers
 
 `test:runtime` builds the runtime test app before running Playwright. `test:build-tools` runs the build checks, prepares the build-tool test apps using `scripts/build-tools.mjs`, then runs Playwright. Their generated files go to `../artifacts/`.
 
-Native test selection and the existing `CAPACITOR_WORKERS_EXPERIMENT=1` flag are documented in [the runtime verification guide](../../docs/runtime-contract.md). The default Capacitor build remains the application under `src/`.
+## Native checks
+
+Prepare a test app in Capacitor's ordinary `dist/` directory, then sync and run:
+
+```sh
+npm run test:native:prepare -- validation
+# Or: npm run test:native:prepare -- runtime
+npm run sync
+npm run ios
+# Or: npm run android
+```
+
+The preparation command builds the selected test app and replaces only the generated `dist/` directory. The normal Capacitor configuration does not change. Restore the example application with `npm run build`, then `npm run sync`.
+
+Native coverage and previous results are documented in [the runtime verification guide](../../docs/runtime-contract.md).

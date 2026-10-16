@@ -239,7 +239,7 @@ demo/
 
 `demo/src/main.ts` initializes the runtime, waits for it to be ready, and calls `startApp()` from `demo/src/app.ts`. The app makes a normal fetch call and displays the result. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and runtime tests.
 
-Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; test-only runtime and compatibility fixtures live under `demo/tests/fixtures/workers/`.
+Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The Hono and Express examples each implement only `/api/hello`. Broader routing and error-handling cases live in `demo/tests/fixtures/workers/{hono,express}/standard.ts`; runtime and binding fixtures also live under `demo/tests/fixtures/workers/`.
 
 ```sh
 cd demo
@@ -256,11 +256,11 @@ npm run test:build-tools
 
 `npm run test:build-tools` in `demo` checks Vite and esbuild with Hono and Express, plus unbundled browser ESM, in both execution modes on Chromium and WebKit.
 
-`test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have ten individually reported tests covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks package types plus both direct and isolated framework execution without handwritten aliases/polyfills.
+`test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have one check for the demo Worker and ten contract-fixture checks covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks package types plus both direct and isolated framework execution without handwritten aliases/polyfills.
 
 ### Local Cloudflare development
 
-Cloudflare CLI configuration lives in `demo/cloudflare.config.ts`. From `demo/`, run `npx cf build --mode hono` or `npx cf build --mode express` to build the corresponding Worker; use `npx cf dev --mode hono` (or `express`) for local development. The installed `cf` version is currently beta. Wrangler remains a development dependency for the CLI's bundler and the test harness; the tests use the same Worker settings from `cloudflare.config.ts`.
+Cloudflare CLI configuration lives in `demo/cloudflare.config.ts`. From `demo/`, run `npx cf build --mode hono` or `npx cf build --mode express` to build the corresponding Worker; use `npx cf dev --mode hono` (or `express`) for local development. The installed `cf` version is currently beta. Wrangler remains a development dependency for the CLI's bundler and the test harness; tests use the same compatibility settings, checking the example Workers as well as separate contract fixtures.
 
 ### Native demo
 
@@ -272,7 +272,7 @@ npm run ios
 npm run android
 ```
 
-Android requires Java 21+. The demo opens the minimal Hono example. For the separate 26-check validation app, run `npm run build:validation`, then use `CAPACITOR_WORKERS_VALIDATION=1` with the sync/ios/android commands instead. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
+Android requires Java 21+. The demo opens the minimal Hono example. For the separate 26-check validation app, run `npm run test:native:prepare -- validation`, then the same sync/ios/android commands. This replaces generated `dist/` assets; run `npm run build` and `npm run sync` to restore the example app. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
 
 ### Continuous integration
 
@@ -305,7 +305,7 @@ The isolated transport buffers uploads and streams responses as pull-driven Mess
 
 ### Validation history
 
-See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/tests/fixtures/apps/runtime/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native build remains selected using the documented native test flag. No npm release has been published by this change.
+See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/tests/fixtures/apps/runtime/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native assets are prepared using the documented test command. No npm release has been published by this change.
 
 ## Extending the library
 
@@ -323,4 +323,8 @@ Fetch implementations extend `FetchRuntime` and share one contract suite. See [t
 2. Add binding adapters: D1 → Capacitor SQLite, KV → local storage provider, R2 → Capacitor Filesystem; compare API behaviour against Workers. Local data is independent of cloud data; sync is separate.
 3. Expand setup automation, compatibility and browser/Electron/Tauri execution. Keep Worker entry configuration and application initialization simple.
 
-The combined Hono + Express demo currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See [verification results](docs/verification.md) for measured results and limitations.
+The Hono + Express compatibility test app currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See [verification results](docs/verification.md) for measured results and limitations.
+
+## License
+
+[MIT](LICENSE).

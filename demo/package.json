@@ -18,7 +18,8 @@
     "test:runtime:dev": "playwright test --config tests/playwright.runtime-dev.config.ts",
     "build:tools": "node tests/scripts/build-tools.mjs",
     "test:build-tools": "vitest run --config tests/vitest.build.config.ts && npm run build:tools && playwright test --config tests/playwright.build-tools.config.ts",
-    "build:validation": "vite build --config tests/validation/vite.config.ts"
+    "build:validation": "vite build --config tests/validation/vite.config.ts",
+    "test:native:prepare": "node tests/scripts/prepare-native.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

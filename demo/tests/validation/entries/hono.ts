@@ -1,3 +1,3 @@
 import { serve } from "@rdlabo/capacitor-workers/worker";
-import worker from "../../../src/workers/hono/standard";
+import worker from "../../fixtures/workers/hono/standard";
 serve(worker);
