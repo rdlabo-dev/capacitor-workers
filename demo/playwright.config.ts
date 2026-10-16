@@ -1,5 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
+  forbidOnly: !!process.env.CI,
+  workers: process.env.CI ? 1 : undefined,
   testDir: "tests/browser",
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },

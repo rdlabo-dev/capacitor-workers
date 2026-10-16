@@ -1,4 +1,5 @@
 import type {
+  KVNamespace,
   KVReadOptions,
   KVReadType,
   KVPutOptions,
@@ -73,7 +74,7 @@ interface RecordValue {
 }
 
 /** Storage and guardrails for the local KV binding; no test-runner dependency. */
-export class StorageNamespace {
+export class StorageNamespace implements KVNamespace {
   private readonly prefix: string;
   constructor(
     namespace: string,
@@ -378,7 +379,3 @@ export class StorageNamespace {
     };
   }
 }
-export type KVNamespace = Pick<
-  StorageNamespace,
-  "get" | "getWithMetadata" | "put" | "delete" | "list"
->;
