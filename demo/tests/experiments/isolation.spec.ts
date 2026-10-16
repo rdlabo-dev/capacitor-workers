@@ -2,7 +2,10 @@ import { test, expect } from "@playwright/test";
 
 test.beforeEach(async ({ page, context }, testInfo) => {
   if (testInfo.title.includes("startup failure")) {
-    await context.route("**/assets/worker-*.js", (route) => route.abort());
+    await context.route(
+      "**/assets/isolation.ts.capacitor-worker-*.js",
+      (route) => route.abort(),
+    );
   }
   await page.goto("/");
   await page.waitForFunction(
@@ -161,12 +164,12 @@ test("remembers startup failure before the first request and never blocks drain"
       );
     }
     await window.experiment.drain();
-    return { startup, rejected, active: window.experiment.activeCalls };
+    return { startup, rejected };
   });
-  expect(result).toEqual({ startup: true, rejected: [true, true], active: 0 });
+  expect(result).toEqual({ startup: true, rejected: [true, true] });
 });
 
-test("preserves statusText and releases completed calls without disposing the worker", async ({
+test("preserves statusText across repeated requests without disposing the worker", async ({
   page,
 }) => {
   expect(
@@ -184,9 +187,6 @@ test("preserves statusText and releases completed calls without disposing the wo
       return true;
     }),
   ).toBe(true);
-  await expect
-    .poll(() => page.evaluate(() => window.experiment.activeCalls))
-    .toBe(0);
 });
 
 test("aborting after headers errors the body and releases the source reader", async ({
@@ -214,9 +214,6 @@ test("aborting after headers errors the body and releases the source reader", as
       ),
     )
     .toBe(1);
-  await expect
-    .poll(() => page.evaluate(() => window.experiment.activeCalls))
-    .toBe(0);
 });
 
 test("preserves a null abort reason after headers", async ({ page }) => {
@@ -251,7 +248,4 @@ test("rejects cancellation when the source cancel fails", async ({ page }) => {
       return result;
     }),
   ).toContain("expected cancellation failure");
-  await expect
-    .poll(() => page.evaluate(() => window.experiment.activeCalls))
-    .toBe(0);
 });

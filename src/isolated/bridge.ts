@@ -1,8 +1,8 @@
-import type { WorkerHandler } from "@rdlabo/capacitor-workers";
-import type { Command, Reply } from "./protocol";
+import type { WorkerHandler } from "../index.js";
+import type { Command, Reply } from "./protocol.js";
 
-/** Experimental transport; not a public library API. */
-export function createIsolatedWorker(worker: Worker) {
+/** Internal Dedicated Worker transport. */
+export function createIsolatedWorker<Env>(worker: Worker) {
   const calls = new Set<(error: Error) => void>();
   let failure: Error | undefined;
   let started!: () => void;
@@ -29,7 +29,7 @@ export function createIsolatedWorker(worker: Worker) {
   worker.onmessageerror = () =>
     stop(new Error("Worker message could not be decoded"));
 
-  const handler: WorkerHandler<{ UPSTREAM: string }> = {
+  const handler: WorkerHandler<Env> = {
     async fetch(request, env, ctx) {
       if (failure) throw failure;
       await ready;
@@ -123,13 +123,18 @@ export function createIsolatedWorker(worker: Worker) {
                 )
               : null;
             bodyDone = !data.hasBody;
-            resolve(
-              new Response(responseBody, {
-                status: data.status,
-                statusText: data.statusText,
-                headers: data.headers,
-              }),
-            );
+            try {
+              resolve(
+                new Response(responseBody, {
+                  status: data.status,
+                  statusText: data.statusText,
+                  headers: data.headers,
+                }),
+              );
+            } catch (error) {
+              send("cancel");
+              fail(error as Error);
+            }
           } else if (data.type === "chunk") {
             if (!bodyDone) stream?.enqueue(data.value);
             pulled?.();
@@ -175,7 +180,7 @@ export function createIsolatedWorker(worker: Worker) {
       return calls.size;
     },
     dispose() {
-      stop(new Error("Experiment worker terminated"));
+      stop(new Error("Worker runtime disposed"));
     },
   };
 }

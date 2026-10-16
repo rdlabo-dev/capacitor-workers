@@ -1,6 +1,6 @@
 # Fetch adapter and runtime investigation
 
-Investigated on 2026-10-16. This is a scoped compatibility investigation, not a claim of complete Workers compatibility.
+Investigated on 2026-10-16. This is a scoped compatibility investigation, not a claim of complete Workers compatibility. The sections below retain the experiment history; **Library integration** at the end describes the current implementation.
 
 ## Hono reference
 
@@ -121,3 +121,34 @@ iOS 26.0, physical devices and framework suites on iOS 27 were not tested in thi
 Run `npm run test:workers` and `npm run test:experiment` in demo. The native reproduction commands above now run all 28 checks. Follow-up logs, JSON and visually inspected screenshots are saved locally under `demo/artifacts/native-framework-{ios26,android}.{log,json,png}`. Ordinary demo assets/config were restored after validation.
 
 **Next boundary:** this establishes that the tested unchanged framework handlers execute through the shared isolated transport. Promoting that transport to the library and designing minimal build/setup configuration remain separate work. Native binding bridges, upload streaming and broader Workers compatibility remain out of scope.
+
+
+## Library integration
+
+Based on main 1cd7695, the shared transport now lives in `src/isolated/`. The demo imports its existing Worker files using `?capacitor-worker` and calls the public `capacitorWorkers({ worker, baseURL })` API. The six demo bridge/protocol/transport/entry files were removed. No native code or dependencies were added, and the original framework handlers are unchanged.
+
+The Vite plugin resolves each query import into a factory and generates its worker-side entry in memory. Registered generated IDs only are transformed; ordinary files sharing the internal suffix are left untouched, and an existing file at a generated path produces an explicit build error. The plugin composes its worker build plugins with any supplied worker plugins. This uses Vite's [worker imports](https://vite.dev/guide/features.html#web-workers) and [worker plugin configuration](https://vite.dev/config/worker-options); Vite 7.3.7 is the version exercised here. No extra wrapper file, manual worker plugin setup, runtime module path string or native plugin is required.
+
+In dev, Express's optimized dependency and an unoptimized cloudflare:node initially used separate copies of the HTTP handler registry. Including cloudflare:node in dependency optimization keeps them in the same prebundled graph. The dev suite tolerates only Vite navigation interruptions caused by dependency discovery; Worker/application errors still fail. Worker source edits use Vite's normal reload behavior; preserving in-memory Worker state across edits is not promised.
+
+The public runtime accepts either the generated Worker factory (isolated mode) or the existing fetch handler object (direct mode). It installs fetch synchronously. Local calls wait for Worker startup, while `runtime.ready` exposes startup failure/success explicitly. Awaiting the installation function itself does not wait for startup. Invalid configuration is checked before creating a Worker. Disposal restores fetch and terminates the worker; unfinished body reads/calls reject and tracked background waits settle. Direct mode retains its shared-global limitation.
+
+The library rejects unusable or status-0 Responses before transfer and catches reconstruction errors so callers cannot hang. The transport still buffers uploads and clones env per request; it does not preserve object identity/functions, custom abort/cancel reasons in the worker, error identity/stacks, cookie state or workerd isolation guarantees. Abort after headers is supported by isolated mode, not retroactively guaranteed for direct handlers. `drain` waits for background completion, not unconsumed bodies.
+
+Internal lifecycle counts are not a public API. Real MessageChannel unit tests cover body/background completion, repeated-call release, crash/disposal paths, invalid Responses, malformed response metadata and non-cloneable env. The browser/native suites now use the public API and no longer inspect the old demo active-call counter.
+
+| Check | Result |
+| --- | --- |
+| Library typecheck/build and unit tests | Passed; 25 tests |
+| Demo typecheck | Passed |
+| Packed npm consumer | Direct 26/26, isolated 22/22; public query-import types checked, no source aliases or copied transport |
+| Chromium/WebKit production isolated suites | 22 tests passed |
+| Chromium/WebKit Vite dev framework suites | 4 tests passed |
+| Ordinary demo browser regression | 4 tests passed |
+| Local workerd | 23 tests passed |
+| iOS 26.1 Simulator | 28/28 through the library: Hono 11, Express 11, transport 6 |
+| Android 16 emulator / WebView 134 | 28/28 through the library |
+
+Native evidence is in local ignored `demo/artifacts/native-library-{ios26,android}.{log,json,png}`; screenshots and JSON were inspected. Normal demo assets/config were restored. Native outbound testing still uses bundled fixtures, not external network/CORS; physical devices, iOS 26.0 and a new iOS 27 run were not tested. Public-package integration is established for these cases, not complete Workers compatibility. No npm publication or cloud deployment was performed.
+
+The next step is a small native binding bridge and a first KV contract, with upload streaming and wider API compatibility kept separate.

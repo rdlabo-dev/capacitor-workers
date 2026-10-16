@@ -1,15 +1,18 @@
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
-import type { PluginOption } from "vite";
+import type { Plugin, PluginOption } from "vite";
 
 /** Add only to the Capacitor/browser build, never the Cloudflare build. */
-export function capacitorWorkersPlugin(): PluginOption[] {
+function compatibilityPlugins(): PluginOption[] {
   const compat = (name: string) =>
     fileURLToPath(new URL(`./compat/${name}.js`, import.meta.url));
   return [
     {
       name: "capacitor-workers",
       config: () => ({
+        // Express and cloudflare:node must share one prebundled HTTP registry.
+        optimizeDeps: { include: ["cloudflare:node"] },
         resolve: {
           alias: {
             "cloudflare:node": compat("cloudflare-node"),
@@ -21,5 +24,71 @@ export function capacitorWorkersPlugin(): PluginOption[] {
       }),
     },
     ...nodePolyfills({ overrides: { http: compat("http") } }),
+  ];
+}
+
+// A real-looking absolute ID survives Vite's worker query stripping without
+// writing generated entry files into the consumer's project.
+const entrySuffix = ".capacitor-worker.js";
+function workerEntryPlugin(entries: Map<string, string>): Plugin {
+  return {
+    name: "capacitor-workers-entry",
+    enforce: "pre",
+    async resolveId(source, importer) {
+      const [path, query = ""] = source.split("?");
+      if (entries.has(path)) return source;
+      if (query !== "capacitor-worker") return;
+      const resolved = await this.resolve(path, importer, { skipSelf: true });
+      if (!resolved || resolved.external)
+        this.error("Cannot resolve Worker entry: " + path);
+      const generated = resolved.id + entrySuffix;
+      if (existsSync(generated))
+        this.error(
+          "Generated Worker entry conflicts with an existing file: " +
+            generated,
+        );
+      entries.set(generated, resolved.id);
+      return resolved.id + "?capacitor-worker";
+    },
+    load(id) {
+      const [path, query = ""] = id.split("?");
+      if (query === "capacitor-worker") {
+        return `import Constructor from ${JSON.stringify(path + entrySuffix + "?worker")};
+export default () => new Constructor();`;
+      }
+      if (entries.has(path) && !new URLSearchParams(query).has("worker")) {
+        const original = entries.get(path)!;
+        const transport = fileURLToPath(
+          new URL("./isolated/transport.js", import.meta.url),
+        );
+        return `import worker from ${JSON.stringify(original)};
+import { serve } from ${JSON.stringify(transport)};
+serve(worker);`;
+      }
+    },
+  };
+}
+
+/** Add only to the Capacitor/browser build, never the Cloudflare build. */
+export function capacitorWorkersPlugin(): PluginOption[] {
+  const entries = new Map<string, string>();
+  return [
+    workerEntryPlugin(entries),
+    {
+      name: "capacitor-workers-worker-build",
+      config(config) {
+        const previous = config.worker?.plugins;
+        return {
+          worker: {
+            plugins: () => [
+              ...(previous?.() ?? []),
+              workerEntryPlugin(entries),
+              ...compatibilityPlugins(),
+            ],
+          },
+        };
+      },
+    },
+    ...compatibilityPlugins(),
   ];
 }

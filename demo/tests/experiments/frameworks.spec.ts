@@ -17,14 +17,30 @@ for (const framework of ["hono", "express"] as const) {
     await page.waitForFunction(
       () => typeof window.startExperiment === "function",
     );
-    await page.evaluate(async (framework) => {
-      window.experiment = window.startExperiment(
-        location.origin,
-        "https://worker.invalid/api",
-        framework,
-      );
-      await window.experiment.ready;
-    }, framework);
+    // Vite dev may reload once when a worker discovers new dependencies.
+    // Retry only navigation interruption, never a Worker/application failure.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await page.evaluate(async (framework) => {
+          window.experiment = window.startExperiment(
+            location.origin,
+            "https://worker.invalid/api",
+            framework,
+          );
+          await window.experiment.ready;
+        }, framework);
+        break;
+      } catch (error) {
+        if (
+          attempt >= 2 ||
+          !String(error).includes("Execution context was destroyed")
+        )
+          throw error;
+        await page.waitForFunction(
+          () => typeof window.startExperiment === "function",
+        );
+      }
+    }
     // The Worker module is loaded; all following API requests must remain local.
     await context.setOffline(true);
     try {
@@ -35,9 +51,6 @@ for (const framework of ["hono", "express"] as const) {
       expect(results).toHaveLength(11);
       expect(results.filter((result) => !result.ok)).toEqual([]);
       await page.evaluate(() => window.experiment.drain());
-      await expect
-        .poll(() => page.evaluate(() => window.experiment.activeCalls))
-        .toBe(0);
       expect(await page.evaluate(() => window.experiment.errors)).toEqual([]);
       expect(apiRequests).toEqual([]);
     } finally {

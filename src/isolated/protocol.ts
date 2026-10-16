@@ -4,7 +4,7 @@ export interface Invocation {
   method: string;
   headers: [string, string][];
   body: ArrayBuffer | null;
-  env: { UPSTREAM: string };
+  env: unknown;
 }
 export type Command = "pull" | "cancel" | "abort";
 export type Reply =

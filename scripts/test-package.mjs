@@ -24,6 +24,7 @@ execFileSync(
     "hono@4.13.13",
     "express@5.3.0",
     "@capacitor/core@8.5.3",
+    "typescript@7.0.2",
   ],
   { cwd: temp, stdio: "pipe" },
 );
@@ -35,6 +36,8 @@ for (const entry of [
   "index.html",
   "contract.ts",
   "cloudflare.d.ts",
+  "client.d.ts",
+  "experiments/dedicated-worker",
 ]) {
   await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
 }
@@ -47,6 +50,34 @@ execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
   cwd: temp,
   stdio: "pipe",
 });
+await writeFile(
+  join(temp, "consumer.ts"),
+  `/// <reference types="@rdlabo/capacitor-workers/client" />
+import worker from "./demo/workers/hono/standard?capacitor-worker";
+import { capacitorWorkers } from "@rdlabo/capacitor-workers";
+const runtime = capacitorWorkers({worker, baseURL:"https://worker.invalid/api"});
+const ready: Promise<void> = runtime.ready;
+// @ts-expect-error Worker factories must not degrade to any.
+const invalid: number = worker;
+runtime.dispose();
+`,
+);
+execFileSync(
+  process.execPath,
+  [
+    "node_modules/typescript/bin/tsc",
+    "--noEmit",
+    "--skipLibCheck",
+    "--moduleResolution",
+    "bundler",
+    "--module",
+    "esnext",
+    "--target",
+    "es2022",
+    "consumer.ts",
+  ],
+  { cwd: temp, stdio: "pipe" },
+);
 const child = spawn(
   process.execPath,
   [
@@ -78,13 +109,54 @@ try {
   const results = await page.evaluate(() => window.pocResults);
   if (results?.length !== 26 || results.some((r) => !r.ok))
     throw new Error(await page.locator("pre").innerText());
+  // Rebuild the same installed tarball consumer using the public isolated import.
+  await writeFile(
+    join(temp, "vite.config.mjs"),
+    `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
+export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin()],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
+  );
+  execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
+    cwd: temp,
+    stdio: "pipe",
+  });
+  await page.goto("http://127.0.0.1:4189");
+  await page.waitForFunction(
+    () => typeof window.startExperiment === "function",
+  );
+  const isolated = [];
+  for (const framework of ["hono", "express"]) {
+    await page.evaluate(async (framework) => {
+      window.experiment = window.startExperiment(
+        location.origin,
+        "https://worker.invalid/api",
+        framework,
+      );
+      await window.experiment.ready;
+    }, framework);
+    await page.context().setOffline(true);
+    try {
+      const checks = await page.evaluate(async (framework) => {
+        const results = await window.runFrameworkContract(framework);
+        await window.experiment.drain();
+        if (window.experiment.errors.length)
+          throw new Error("Background errors");
+        return results;
+      }, framework);
+      if (checks.length !== 11 || checks.some((r) => !r.ok))
+        throw new Error(JSON.stringify(checks));
+      isolated.push(...checks);
+    } finally {
+      await page.evaluate(() => window.experiment.dispose());
+      await page.context().setOffline(false);
+    }
+  }
   await mkdir(resolve(root, "artifacts"), { recursive: true });
   await writeFile(
     resolve(root, "artifacts/package-results.json"),
-    JSON.stringify({ consumer: temp, results }, null, 2),
+    JSON.stringify({ consumer: temp, direct: results, isolated }, null, 2),
   );
   console.log(
-    `Packed consumer: ${results.length}/${results.length} passed (${temp})`,
+    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22 passed (${temp})`,
   );
 } finally {
   await browser?.close();
