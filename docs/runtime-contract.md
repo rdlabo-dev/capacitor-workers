@@ -37,7 +37,7 @@ Temporarily restoring global fetch while a handler runs would break concurrent U
 
 ## Dedicated Web Worker experiment
 
-`demo/experiments/dedicated-worker/` imports the unchanged `demo/tests/fixtures/workers/runtime/isolation.ts` module in a separate global scope. The UI installs the existing adapter with a small MessageChannel bridge. Requests carry URL/method/headers and a buffered body; responses carry status/statusText/headers and pull-driven Uint8Array chunks over the port. The receiving ReadableStream requests one chunk per pull, without transferring a stream or buffering the whole response. Abort messages reach an AbortController inside the worker. Background completion is reported separately from the response and participates in runtime.drain(). Ports and abort listeners are released after body termination and background completion. Worker startup failure is retained and rejects current/subsequent requests. Abort after headers errors the receiving body; source cancellation failures reject reader.cancel().
+`demo/tests/fixtures/apps/runtime/` imports the unchanged `demo/tests/fixtures/workers/runtime/isolation.ts` module in a separate global scope. The UI installs the existing adapter with a small MessageChannel bridge. Requests carry URL/method/headers and a buffered body; responses carry status/statusText/headers and pull-driven Uint8Array chunks over the port. The receiving ReadableStream requests one chunk per pull, without transferring a stream or buffering the whole response. Abort messages reach an AbortController inside the worker. Background completion is reported separately from the response and participates in runtime.drain(). Ports and abort listeners are released after body termination and background completion. Worker startup failure is retained and rejects current/subsequent requests. Abort after headers errors the receiving body; source cancellation failures reject reader.cancel().
 
 The experimental page/build is separate from the normal demo. Capacitor uses it only when `CAPACITOR_WORKERS_EXPERIMENT=1` is explicitly set during sync. No extra dependency, native code or public library API was added.
 
@@ -45,7 +45,7 @@ Run from `demo/` after building the root library:
 
 ```sh
 npm run test:workers
-npm run test:experiment
+npm run test:runtime
 ```
 
 | Observation                                                  | workerd                                                         | Chromium / WebKit dedicated worker                                                |
@@ -89,7 +89,7 @@ The initial transfer-based run produced 0/5 on iOS 26.1 and 5/5 on iOS 27.0/Andr
 Reproduce from `demo/`:
 
 ```sh
-npm run build:experiment
+npm run build:runtime
 CAPACITOR_WORKERS_EXPERIMENT=1 npx cap sync
 # Build/run the generated ios/ or android/ project with the native SDK.
 # The app displays the report and logs NATIVE_EXPERIMENT with JSON results.
@@ -117,7 +117,7 @@ Browser framework suites load their Dedicated Worker, disable networking, then e
 
 iOS 26.0, physical devices and framework suites on iOS 27 were not tested in this follow-up. The earlier iOS 27 transport result remains historical evidence, not a framework result. Runtime-level outbound fetch/waitUntil behavior is covered by the existing neutral fixture; no new framework-specific outbound routes were added.
 
-Run `npm run test:workers` and `npm run test:experiment` in demo. The native reproduction commands above now run all 28 checks. Follow-up logs, JSON and visually inspected screenshots are saved locally under `demo/artifacts/native-framework-{ios26,android}.{log,json,png}`. Ordinary demo assets/config were restored after validation.
+Run `npm run test:workers` and `npm run test:runtime` in demo. The native reproduction commands above now run all 28 checks. Follow-up logs, JSON and visually inspected screenshots are saved locally under `demo/artifacts/native-framework-{ios26,android}.{log,json,png}`. Ordinary demo assets/config were restored after validation.
 
 **Next boundary:** this establishes that the tested unchanged framework handlers execute through the shared isolated transport. Promoting that transport to the library and designing minimal build/setup configuration remain separate work. Native binding bridges, upload streaming and broader Workers compatibility remain out of scope.
 

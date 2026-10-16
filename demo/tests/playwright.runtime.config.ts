@@ -4,14 +4,14 @@ export default defineConfig({
   outputDir: "../test-results",
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,
-  testDir: "./experiments",
+  testDir: "./runtime",
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "webkit", use: { browserName: "webkit" } },
   ],
   webServer: {
     cwd: fileURLToPath(new URL("../", import.meta.url)),
-    command: "npm run preview:experiment",
+    command: "npm run preview:runtime",
     url: "http://127.0.0.1:4181",
     reuseExistingServer: false,
     stdout: "pipe",

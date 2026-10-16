@@ -1,6 +1,6 @@
 import { FetchImplementation } from "@rdlabo/capacitor-workers/features/fetch";
 import { openFeature } from "@rdlabo/capacitor-workers/features";
-import { runContract } from "../tests/validation/contracts/http";
+import { runContract } from "../../../validation/contracts/http";
 
 // Deliberately no root package import: exercise subpath-only dependency scanning.
 async function run(prefer: "worker" | "direct") {

@@ -54,6 +54,16 @@ npm run ios
 # Or: npm run android
 ```
 
+## Directory guide
+
+| Location                                                        | Purpose                                                                                                            |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `src/`                                                          | The example application: initialization, API call, and existing Workers.                                           |
+| `vite.config.ts`, `capacitor.config.ts`, `cloudflare.config.ts` | Build and execution settings for the example application.                                                          |
+| `ios/`, `android/`                                              | Capacitor native projects for running the example.                                                                 |
+| `tests/`                                                        | Automated checks, test-only apps and Workers, and test preparation scripts. See [the test guide](tests/README.md). |
+| `dist/`, `artifacts/`, `test-results/`                          | Generated application builds, validation builds/evidence, and test output. Not source files.                       |
+
 ## Compatibility tests
 
 `tests/validation/` and `tests/fixtures/` contain the validation app and test-only Workers. `npm run test:browser` builds and serves the validation app separately. The normal `src/` application and its build do not depend on these files. See the [repository testing guide](../README.md#development-and-testing) for the full test commands.

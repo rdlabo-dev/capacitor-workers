@@ -31,12 +31,10 @@ execFileSync(
 );
 // The consumer test needs web sources only, not native projects/build outputs.
 for (const entry of [
-  "build-tools",
-  "scripts/build-tools.mjs",
+  "tests/scripts/build-tools.mjs",
   "src",
   "tests/validation",
   "tests/fixtures",
-  "experiments/dedicated-worker",
 ]) {
   await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
 }
@@ -166,7 +164,7 @@ try {
   await writeFile(
     join(temp, "vite.config.mjs"),
     `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin({worker:'../../tests/fixtures/workers/runtime/isolation.ts'})],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
+export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorkersPlugin({worker:'../../workers/runtime/isolation.ts'})],build:{outDir:'../../../../../build',emptyOutDir:true,target:'es2022'}};`,
   );
   execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
     cwd: temp,
@@ -230,7 +228,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     )
   )
     throw new Error(JSON.stringify(features));
-  execFileSync(process.execPath, ["demo/scripts/build-tools.mjs"], {
+  execFileSync(process.execPath, ["demo/tests/scripts/build-tools.mjs"], {
     cwd: temp,
     stdio: "pipe",
   });
@@ -270,7 +268,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     [
       "node_modules/vite/bin/vite.js",
       "--config",
-      "demo/build-tools/vite.config.ts",
+      "demo/tests/fixtures/apps/build-tools/vite.config.ts",
       "--host",
       "127.0.0.1",
       "--port",

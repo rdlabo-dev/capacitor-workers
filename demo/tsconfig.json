@@ -9,5 +9,5 @@
     "esModuleInterop": true,
     "types": ["node", "@rdlabo/capacitor-workers/cloudflare"]
   },
-  "include": ["*.ts", "src", "tests", "experiments", "build-tools"]
+  "include": ["*.ts", "src", "tests"]
 }

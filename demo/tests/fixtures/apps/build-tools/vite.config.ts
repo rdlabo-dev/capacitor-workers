@@ -10,12 +10,15 @@ export default defineConfig(({ mode }) => {
     root: fileURLToPath(new URL(".", import.meta.url)),
     plugins: [
       capacitorWorkersPlugin({
-        worker: `../src/workers/${framework}/standard.ts`,
+        worker: `../../../../src/workers/${framework}/standard.ts`,
       }),
     ],
     build: {
       outDir: fileURLToPath(
-        new URL(`../artifacts/build-tools/vite-${framework}`, import.meta.url),
+        new URL(
+          `../../../../artifacts/build-tools/vite-${framework}`,
+          import.meta.url,
+        ),
       ),
       emptyOutDir: true,
       target: "es2022",

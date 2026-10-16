@@ -4,16 +4,16 @@ import { fileURLToPath } from "node:url";
 import { build as viteBuild } from "vite";
 import { build as esbuild } from "esbuild";
 import { capacitorWorkersPlugin } from "@rdlabo/capacitor-workers/esbuild";
-const root = fileURLToPath(new URL("../", import.meta.url));
+const root = fileURLToPath(new URL("../../", import.meta.url));
 for (const framework of ["hono", "express"]) {
   await viteBuild({
-    configFile: resolve(root, "build-tools/vite.config.ts"),
+    configFile: resolve(root, "tests/fixtures/apps/build-tools/vite.config.ts"),
     mode: framework,
   });
   const outdir = resolve(root, `artifacts/build-tools/esbuild-${framework}`);
   await esbuild({
     absWorkingDir: root,
-    entryPoints: { "nested/app": "build-tools/main.ts" },
+    entryPoints: { "nested/app": "tests/fixtures/apps/build-tools/main.ts" },
     outdir,
     bundle: true,
     format: "esm",
@@ -35,7 +35,9 @@ for (const framework of ["hono", "express"]) {
 }
 const raw = resolve(root, "artifacts/build-tools/raw");
 await mkdir(raw, { recursive: true });
-await cp(resolve(root, "build-tools/raw"), raw, { recursive: true });
+await cp(resolve(root, "tests/fixtures/apps/build-tools/raw"), raw, {
+  recursive: true,
+});
 // Copy the ESM distribution verbatim: these files are never bundled.
 const dist = dirname(
   fileURLToPath(import.meta.resolve("@rdlabo/capacitor-workers")),

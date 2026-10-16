@@ -59,9 +59,9 @@ jobs:
         working-directory: demo
       - run: npm run test:browser
         working-directory: demo
-      - run: npm run test:experiment
+      - run: npm run test:runtime
         working-directory: demo
-      - run: npm run test:experiment:dev
+      - run: npm run test:runtime:dev
         working-directory: demo
       - run: npm run test:build-tools
         working-directory: demo

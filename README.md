@@ -229,15 +229,15 @@ demo/
     workers/        Hono and Express application code
   tests/
     validation/     Validation page, runners, contracts and Worker entries
-    fixtures/       Test-only Worker handlers
+    fixtures/
+      apps/         Runtime and build-tool test apps
+      workers/      Test-only Worker handlers
+    scripts/        Node.js helpers that build test apps
     ...             Automated tests and Playwright/Vitest configurations
-  experiments/      Dedicated Worker experiment
-  build-tools/      Build integration fixtures
-  scripts/          Build helpers
   ios/, android/    Native projects
 ```
 
-`demo/src/main.ts` initializes the runtime, waits for it to be ready, and calls `startApp()` from `demo/src/app.ts`. The app makes a normal fetch call and displays the result. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and Worker experiments.
+`demo/src/main.ts` initializes the runtime, waits for it to be ready, and calls `startApp()` from `demo/src/app.ts`. The app makes a normal fetch call and displays the result. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and runtime tests.
 
 Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; test-only runtime and compatibility fixtures live under `demo/tests/fixtures/workers/`.
 
@@ -249,8 +249,8 @@ npm run build
 npx playwright install chromium webkit
 npm run test:browser
 npm run test:workers
-npm run test:experiment
-npm run test:experiment:dev
+npm run test:runtime
+npm run test:runtime:dev
 npm run test:build-tools
 ```
 
@@ -305,7 +305,7 @@ The isolated transport buffers uploads and streams responses as pull-driven Mess
 
 ### Validation history
 
-See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/experiments/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native build remains selected using the documented experiment flag. No npm release has been published by this change.
+See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/tests/fixtures/apps/runtime/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native build remains selected using the documented native test flag. No npm release has been published by this change.
 
 ## Extending the library
 
