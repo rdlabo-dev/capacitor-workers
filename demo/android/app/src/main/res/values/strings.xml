@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Workers PoC</string>
+    <string name="title_activity_main">Workers PoC</string>
+    <string name="package_name">jp.rdlabo.capacitorworkers.poc</string>
+    <string name="custom_url_scheme">jp.rdlabo.capacitorworkers.poc</string>
+</resources>
