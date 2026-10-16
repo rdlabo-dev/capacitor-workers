@@ -1,4 +1,3 @@
-import configuredWorker from "virtual:capacitor-workers";
 import { kvRequest } from "../../features/kv";
 import { runFeatures } from "../../features/run";
 import { Capacitor } from "@capacitor/core";
@@ -59,7 +58,6 @@ export function startPreferred(
   env: Record<string, unknown> = {},
 ) {
   return capacitorWorkers({
-    worker: configuredWorker,
     baseURL: "https://preferred.example/api",
     prefer,
     env,
@@ -77,7 +75,9 @@ export function startStartupProbe() {
     baseURL: "https://preferred.example/api",
     prefer: "direct",
     worker: {
-      ...configuredWorker,
+      createWorker: () => {
+        throw new Error("Direct-only regression fixture");
+      },
       loadDirect: async () =>
         (await import("../../workers/runtime/direct-startup-fetch")).default,
     },
@@ -92,10 +92,12 @@ export function startDelayedDirect() {
     baseURL: "https://preferred.example/api",
     prefer: "direct",
     worker: {
-      ...configuredWorker,
+      createWorker: () => {
+        throw new Error("Direct-only regression fixture");
+      },
       loadDirect: async () => {
         await gate;
-        return configuredWorker.loadDirect();
+        return (await import("../../workers/runtime/isolation")).default;
       },
     },
   });

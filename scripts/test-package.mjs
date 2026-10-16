@@ -21,6 +21,7 @@ execFileSync(
     "install",
     join(temp, pack.filename),
     "vite@7.3.7",
+    "esbuild@0.28.2",
     "hono@4.13.13",
     "express@5.3.0",
     "@capacitor/core@8.5.3",
@@ -30,6 +31,8 @@ execFileSync(
 );
 // The consumer test needs web sources only, not native projects/build outputs.
 for (const entry of [
+  "build-tools",
+  "scripts/build-tools.mjs",
   "workers",
   "features",
   "public",
@@ -227,6 +230,104 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     )
   )
     throw new Error(JSON.stringify(features));
+  execFileSync(process.execPath, ["demo/scripts/build-tools.mjs"], {
+    cwd: temp,
+    stdio: "pipe",
+  });
+  await cp(
+    join(temp, "demo/artifacts/build-tools"),
+    join(temp, "build/build-tools"),
+    { recursive: true },
+  );
+  for (const build of [
+    "vite-hono",
+    "vite-express",
+    "esbuild-hono",
+    "esbuild-express",
+    "raw",
+  ]) {
+    for (const prefer of ["worker", "direct"]) {
+      await page.goto(`http://127.0.0.1:4189/build-tools/${build}/`);
+      await page.waitForFunction(
+        () => typeof window.runBuildTool === "function",
+      );
+      const report = await page.evaluate(
+        (prefer) => window.runBuildTool(prefer),
+        prefer,
+      );
+      if (
+        report.execution !== prefer ||
+        report.cases.length !== (build === "raw" ? 4 : 9) ||
+        report.cases.some((result) => !result.ok)
+      )
+        throw new Error(`${build}/${prefer}: ${JSON.stringify(report)}`);
+    }
+  }
+  console.log("Packed consumer: Vite/esbuild/browser ESM 10/10 passed");
+  // Installed package, cold Vite dev optimization, subpath-only application.
+  const dev = spawn(
+    process.execPath,
+    [
+      "node_modules/vite/bin/vite.js",
+      "--config",
+      "demo/build-tools/vite.config.ts",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "4187",
+      "--strictPort",
+      "--force",
+    ],
+    { cwd: temp, stdio: "pipe" },
+  );
+  let devOutput = "";
+  dev.stdout.on("data", (chunk) => {
+    devOutput += chunk;
+  });
+  dev.stderr.on("data", (chunk) => {
+    devOutput += chunk;
+  });
+  try {
+    const deadline = Date.now() + 60000;
+    let readiness = "No response";
+    while (true) {
+      try {
+        const response = await fetch("http://127.0.0.1:4187/features.html", {
+          signal: AbortSignal.timeout(3000),
+        });
+        if (response.ok) break;
+        readiness = `${response.status}: ${await response.text()}`;
+      } catch (error) {
+        readiness = String(error);
+      }
+      if (dev.exitCode !== null || Date.now() > deadline)
+        throw new Error(
+          `Consumer dev server failed to start: ${readiness}\n${devOutput}`,
+        );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    await page.goto("http://127.0.0.1:4187/features.html");
+    await page.waitForFunction(
+      () => typeof window.runConfiguredFeature === "function",
+    );
+    for (const prefer of ["worker", "direct"]) {
+      const report = await page.evaluate(
+        (prefer) => window.runConfiguredFeature(prefer),
+        prefer,
+      );
+      if (
+        !report.unchanged ||
+        report.cases.length !== 9 ||
+        report.cases.some((result) => !result.ok)
+      )
+        throw new Error(JSON.stringify(report));
+    }
+    console.log(
+      "Packed consumer: configured Fetch subpath in Vite dev 2/2 passed",
+    );
+  } finally {
+    dev.kill("SIGTERM");
+  }
   await mkdir(resolve(root, "artifacts"), { recursive: true });
   await writeFile(
     resolve(root, "artifacts/package-results.json"),

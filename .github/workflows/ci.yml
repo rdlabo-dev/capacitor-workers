@@ -63,6 +63,8 @@ jobs:
         working-directory: demo
       - run: npm run test:experiment:dev
         working-directory: demo
+      - run: npm run test:build-tools
+        working-directory: demo
 
   package:
     runs-on: ubuntu-24.04

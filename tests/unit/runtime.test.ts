@@ -4,6 +4,12 @@ let runtime:
   | Pick<ReturnType<typeof capacitorWorkers>, "dispose" | "drain">
   | undefined;
 const original = globalThis.fetch;
+it("reports missing build configuration without changing fetch", () => {
+  expect(() =>
+    capacitorWorkers({ baseURL: "https://api.example/api" }),
+  ).toThrow("No Worker configured");
+  expect(globalThis.fetch).toBe(original);
+});
 afterEach(() => {
   runtime?.dispose();
   runtime = undefined;
