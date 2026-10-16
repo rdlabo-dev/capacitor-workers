@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./upstream/hono-jsx-ssr",
-  testMatch: "browser.spec.ts",
+  testMatch: "*.spec.ts",
   outputDir: "../artifacts/upstream/playwright",
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 1 : undefined,

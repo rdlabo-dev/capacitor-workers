@@ -5,9 +5,13 @@
 // body renders as a document.
 async function runUpstreamProbe() {
   const key = "upstream-probe";
-  const state = JSON.parse(
-    sessionStorage.getItem(key) || '{"step":0,"cases":[]}',
+  const { runId } = await fetch("/probe-run.json", { cache: "no-store" }).then(
+    (response) => response.json(),
   );
+  if (typeof runId !== "string" || !runId)
+    throw new Error("Missing probe run ID");
+  const saved = JSON.parse(sessionStorage.getItem(key) || "null");
+  const state = saved?.runId === runId ? saved : { runId, step: 0, cases: [] };
   if (window.upstreamProbeStep === state.step) return;
   window.upstreamProbeStep = state.step;
   if (document.readyState !== "complete")
@@ -36,7 +40,7 @@ async function runUpstreamProbe() {
     action();
   };
   const report = () => {
-    const result = { url: location.href, cases: state.cases };
+    const result = { runId, url: location.href, cases: state.cases };
     const output = document.createElement("pre");
     output.id = "upstream-report";
     output.style.cssText =

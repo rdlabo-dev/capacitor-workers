@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import { cp, mkdir, open, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -45,6 +46,11 @@ const adbArgs = [
 const adbRun = (args) => run(adb, [...adbArgs, ...args]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const runId = randomUUID();
+await writeFile(
+  join(consumer, "public/probe-run.json"),
+  JSON.stringify({ runId }),
+);
 run("npm", ["run", "build"]);
 run("npx", ["cap", "sync", platform]);
 const buildLog = await open(
@@ -169,6 +175,7 @@ try {
   const report = JSON.parse(
     (await waitMarker("UPSTREAM_RESULT", /UPSTREAM_RESULT (\{[^\r\n]+\})/))[1],
   );
+  assert.equal(report.runId, runId, "Report must belong to the current run");
   // Require the exact declared case set, not merely "no failures": an early
   // or partial report must not read as success.
   assert.deepEqual(

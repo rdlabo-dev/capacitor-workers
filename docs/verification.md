@@ -225,3 +225,7 @@ Each run verifies background/foreground, process termination/relaunch, updated W
 The final four reports and console/build logs are local artifacts in `/private/tmp/claude/capacitor-workers-native-package-hiXuCf/artifacts/`, named `{ios,android}-{hono,express}.json` and corresponding logs. `demo/artifacts/native-package-consumer.json` points to the consumer; see [the test guide](../demo/tests/README.md#packaged-native-rendering-api) for reproduction commands. All four reports contain no failed acceptance cases and passing background/relaunch/update/reinit/complete stages.
 
 Review-time checks: root/demo typechecking, library build, all 132 unit tests, changed JavaScript syntax checks, and `git diff --check` pass. Native results above are from the final lifecycle test code, before this documentation-only record was added.
+
+### Upstream probe rerun isolation — Devin follow-up
+
+Each native invocation now generates a fresh run ID asset before building. The probe preserves session progress only for that ID, and the runner requires the same ID in the report. Chromium/WebKit regression cases seed completed and interrupted previous runs and verify a fresh run starts, while current-run navigation retains progress. The upstream browser suite passes 30/30, demo typechecking and script syntax checks pass. Two consecutive runs in the same packed iOS 26.1 consumer pass 14/14 each; Android was not repeated for this test-driver-only change.

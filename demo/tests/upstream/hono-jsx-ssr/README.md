@@ -46,6 +46,11 @@ Upstream behavior relied on by the assertions:
   `/post/99`; no script executes on that `text/plain` page, so the runner
   captures a screenshot for visual verification recorded separately from
   the structured cases.
+- Each native run generates `public/probe-run.json` with a fresh run ID before
+  building. The probe resets completed or interrupted progress only when that
+  ID changes, preserving progress during navigation within the same run. The
+  runner also rejects reports from any other run. `probe.spec.ts` verifies these
+  cases in Chromium and WebKit.
 - The runner requires the exact declared case set in `upstream.json`
   (`probeCases`) to be reported with every case passing; an early or
   partial report fails the run.
