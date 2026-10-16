@@ -1,6 +1,11 @@
 import { createIsolatedWorker } from "../isolated/bridge.js";
 import { FetchRuntime, type FetchRuntimeOptions } from "./runtime.js";
-import type { WorkerContext, WorkerFactory, WorkerHandler } from "./types.js";
+import type {
+  CapacitorWorkersOptions,
+  WorkerContext,
+  WorkerFactory,
+  WorkerHandler,
+} from "./types.js";
 
 export class DirectFetchRuntime<Env> extends FetchRuntime<Env> {
   constructor(
@@ -28,4 +33,15 @@ export class IsolatedFetchRuntime<Env> extends FetchRuntime<Env> {
   protected override close() {
     this.isolated.dispose();
   }
+}
+
+/** The installer and feature host select execution in exactly the same way. */
+export function createFetchRuntime<Env>(options: CapacitorWorkersOptions<Env>) {
+  const hasFetch =
+    typeof (options.worker as WorkerHandler<Env>)?.fetch === "function";
+  if (!hasFetch && typeof options.worker !== "function")
+    throw new TypeError("worker.fetch is required.");
+  return hasFetch
+    ? new DirectFetchRuntime(options, options.worker as WorkerHandler<Env>)
+    : new IsolatedFetchRuntime(options, options.worker as WorkerFactory);
 }

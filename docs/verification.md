@@ -70,3 +70,24 @@ The shared suite in `tests/contracts/fetch.ts` runs the same 15 cases against di
 | Android 16 emulator, WebView 134      | 28/28                                                             |
 
 Native builds use bundled assets without a development server. Each native run covers six neutral runtime checks and eleven checks per unchanged Hono/Express Worker. Logs, JSON reports and visually inspected screenshots are local ignored files at `demo/artifacts/native-fetch-pattern-{ios26,android}.{log,json,png}`. This validates simulator/emulator WebViews, not physical devices or production Cloudflare. The ordinary demo assets/configuration were restored after the native experiment. No cloud deployment or package publication was performed.
+
+## Common feature standard — 2026-10-16
+
+On `feat/common-feature-foundation`, a typed profile connects API, declared behavioral coverage, implementation and contract suite. The common host owns initialization rollback and reverse-order, idempotent cleanup. The runner uses a fresh scope for each supported case and distinguishes passed, failed, unsupported and unavailable outcomes. See [the common feature standard](feature-standard.md).
+
+Three profiles exercise the same machinery: portable HTTP behavior (direct and isolated fetch), a test-only memory text store compared with actual local Workers KV, and WebAssembly validation compared with workerd. The library contains the generic host/testing layer and fetch connector; state/engine fixtures and native projects remain in the independent demo. No full KV adapter, TTL/metadata/listing support, native persistence, V8 embedding or cloud synchronization is claimed.
+
+| Check                              | Result                                                                                                                            |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Root/demo typecheck, library build | Passed                                                                                                                            |
+| Negative type tests                | Reject missing/wrong operations, wrong arguments/results, mismatched feature/API identities and missing/invented cases            |
+| Root Vitest                        | 73/73, including lifecycle and result-policy tests                                                                                |
+| Local workerd Vitest               | 25/25; two new tests execute nine shared HTTP/KV/engine cases against actual runtime facilities                                   |
+| Chromium/WebKit ordinary demo      | 4/4                                                                                                                               |
+| Chromium/WebKit isolated demo      | 24/24; each browser runs all 13 common feature cases                                                                              |
+| Vite development Hono/Express      | 4/4                                                                                                                               |
+| Fresh npm tarball consumer         | Direct 26/26, isolated 22/22, common profiles 13/13; public declarations preserve API typing and reject incorrect implementations |
+| iOS 26.1 Simulator, iPhone 17 Pro  | 41/41                                                                                                                             |
+| Android 16 emulator, WebView 134   | 41/41                                                                                                                             |
+
+The 41 native checks are the existing 28 plus 13 common cases (HTTP 4 × direct/isolated, text storage 3, engine 2). Native checks use bundled assets; logs, JSON reports and visually inspected screenshots are saved locally as `demo/artifacts/native-feature-standard-{ios26,android}.{log,json,png}`. These are simulator/emulator WebViews, not physical devices. The KV reference uses local workerd storage, not a production Cloudflare namespace. The memory provider is a nonpersistent verification fixture. Normal demo assets/configuration were restored after native testing. No npm or PR publication or cloud deployment was performed.

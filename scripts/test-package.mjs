@@ -31,6 +31,7 @@ execFileSync(
 // The consumer test needs web sources only, not native projects/build outputs.
 for (const entry of [
   "workers",
+  "features",
   "public",
   "main.ts",
   "index.html",
@@ -61,6 +62,28 @@ class ExampleRuntime extends FetchRuntime<{ label: string }> {
     return new Response(env.label + request.method);
   }
 }
+import { defineFeature, FeatureImplementation, openFeature } from "@rdlabo/capacitor-workers/features";
+import { runContract, type ContractSuite } from "@rdlabo/capacitor-workers/testing";
+const feature = defineFeature<{ value(): number }>()("consumer", ["value"]);
+const incompatibleFeature = defineFeature<{ value(): string }>()("consumer", ["value"]);
+// @ts-expect-error Published declarations must preserve API invariance.
+const invalidFeature: typeof feature = incompatibleFeature;
+class InvalidImplementation extends FeatureImplementation<typeof feature> {
+  // @ts-expect-error Wrong API result must fail against published declarations.
+  create() { return { value: () => "wrong" }; }
+}
+class Implementation extends FeatureImplementation<typeof feature> {
+  constructor() { super(feature, { value: { status: "supported" } }); }
+  create() { return { value: () => 1 }; }
+}
+const suite: ContractSuite<typeof feature> = { feature, cases: { value(api) { const value: number = api.value(); } } };
+void runContract(new Implementation(), suite);
+void openFeature(new Implementation()).then(session => {
+  const value: number = session.api.value();
+  // @ts-expect-error Public API inference must not degrade to any.
+  session.api.missing();
+  return session.dispose();
+});
 const example = new ExampleRuntime({ baseURL: "https://worker.invalid/api", env: { label: "local" } });
 const fetcher: typeof fetch = example.fetch;
 example.dispose();
@@ -76,6 +99,7 @@ execFileSync(
   [
     "node_modules/typescript/bin/tsc",
     "--noEmit",
+    "--strict",
     "--skipLibCheck",
     "--moduleResolution",
     "bundler",
@@ -159,13 +183,27 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
       await page.context().setOffline(false);
     }
   }
+  const features = await page.evaluate(() => window.runFeatures());
+  if (
+    features.flatMap((report) => report.cases).length !== 13 ||
+    features.some(
+      (report) =>
+        report.errors.length ||
+        report.cases.some((test) => test.status !== "passed"),
+    )
+  )
+    throw new Error(JSON.stringify(features));
   await mkdir(resolve(root, "artifacts"), { recursive: true });
   await writeFile(
     resolve(root, "artifacts/package-results.json"),
-    JSON.stringify({ consumer: temp, direct: results, isolated }, null, 2),
+    JSON.stringify(
+      { consumer: temp, direct: results, isolated, features },
+      null,
+      2,
+    ),
   );
   console.log(
-    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22 passed (${temp})`,
+    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 13/13 passed (${temp})`,
   );
 } finally {
   await browser?.close();

@@ -131,6 +131,10 @@ The isolated transport buffers uploads and streams responses as pull-driven Mess
 
 See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/experiments/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native build remains selected using the documented experiment flag. No npm release has been published by this change.
 
+## Common feature standard
+
+A typed feature definition connects implementations, coverage and contract tests across APIs, services and engine capabilities. The shared host owns initialization rollback and cleanup. See [the common feature standard](docs/feature-standard.md) for the implementation recipe and validation rules. The demo applies it to fetch, a minimal KV text profile and WebAssembly validation.
+
 ## Implementation pattern
 
 Fetch implementations extend `FetchRuntime` and share one contract suite. See [the Fetch extension recipe](docs/fetch-pattern.md) for responsibilities, subclass hooks and required verification. Application setup remains `capacitorWorkers({ worker, baseURL })`.

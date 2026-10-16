@@ -1,3 +1,4 @@
+import { runFeatures } from "../../features/run";
 import { Capacitor } from "@capacitor/core";
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
 import isolation from "../../workers/runtime/isolation?capacitor-worker";
@@ -32,6 +33,7 @@ export function startExperiment(
 }
 declare global {
   interface Window {
+    runFeatures: typeof runFeatures;
     startExperiment: typeof startExperiment;
     experiment: ReturnType<typeof startExperiment>;
     runFrameworkContract: typeof runFrameworkContract;
@@ -45,3 +47,5 @@ if (Capacitor.isNativePlatform()) {
     runNativeExperiment(),
   );
 }
+
+window.runFeatures = runFeatures;
