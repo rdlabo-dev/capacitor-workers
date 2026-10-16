@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import { runFrameworkContract } from "./frameworks";
 
 type Result = { name: string; ok: boolean; error?: string };
 const results: Result[] = [];
@@ -139,6 +140,44 @@ export async function runNativeExperiment() {
       results.push({ name, ok: true });
     } catch (error) {
       results.push({ name, ok: false, error: String(error) });
+    } finally {
+      clearTimeout(timer);
+      runtime?.dispose();
+    }
+  }
+  for (const framework of ["hono", "express"] as const) {
+    let runtime: ReturnType<typeof window.startExperiment> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const current = window.startExperiment(
+        upstream,
+        "https://worker.invalid/api",
+        framework,
+      );
+      runtime = current;
+      window.experiment = current;
+      const checks = await Promise.race([
+        (async () => {
+          const checks = await runFrameworkContract(framework);
+          await current.drain();
+          await until(async () => current.activeCalls === 0);
+          equal(current.errors, []);
+          return checks;
+        })(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("Framework experiment timed out")),
+            15000,
+          );
+        }),
+      ]);
+      results.push(...checks);
+    } catch (error) {
+      results.push({
+        name: `${framework}: runtime completion`,
+        ok: false,
+        error: String(error),
+      });
     } finally {
       clearTimeout(timer);
       runtime?.dispose();

@@ -62,13 +62,13 @@ Browser upstream responses are controlled with Playwright context routing; reque
 
 Two test-transport differences were observed: the harness exposes the HTTP scheme used by its local connection, and compressed open-ended streams did not produce the expected first chunk in the initial probe. The streaming comparison therefore explicitly requests identity encoding. Cancelling the workerd client reader succeeded, but the source JavaScript cancel counter did not increment during the observation window. We do not claim identical server teardown callbacks based on that result.
 
-**Decision:** separate globals solve the tested inbound/outbound collision. The initial transferable-stream prototype failed on iOS 26.1 with DataCloneError. Replacing stream transfer with a single pull-driven MessagePort chunk protocol passes the native cases on iOS 26.1, iOS 27.0 and Android 16. There is no OS-specific fallback or added native code. Keep the bridge experimental until framework integration and the remaining transport contract are validated.
+**Decision:** separate globals solve the tested inbound/outbound collision. The initial transferable-stream prototype failed on iOS 26.1 with DataCloneError. Replacing stream transfer with a single pull-driven MessagePort chunk protocol passes the native cases on iOS 26.1, iOS 27.0 and Android 16. There is no OS-specific fallback or added native code. The framework follow-up below validates standard Hono/Express cases. Keep the bridge experimental until its public setup and remaining transport contract are defined.
 
-**Prototype limits:** request bodies are fully buffered; only URL/method/headers/body are transported; env must be structured-cloneable, does not preserve object identity, and cannot carry functions; error identity/stack and cancellation reasons across the worker boundary are not preserved. Unconsumed bodies retain their calls until cancelled or disposed. No CORS bypass, cookie isolation, compatibility-date emulation or isolate resource limits are supplied. Hono/Express continue to be tested through the existing adapter, not through this runtime prototype. Native results and their limits are recorded below.
+**Prototype limits:** request bodies are fully buffered; only URL/method/headers/body are transported; env must be structured-cloneable, does not preserve object identity, and cannot carry functions; error identity/stack and cancellation reasons across the worker boundary are not preserved. Unconsumed bodies retain their calls until cancelled or disposed. No CORS bypass, cookie isolation, compatibility-date emulation or isolate resource limits are supplied. Hono/Express standard handlers are now also tested through this runtime prototype; framework-specific outbound I/O and additional Node APIs are not covered. Native results and their limits are recorded below.
 
 ## Validation boundary
 
-Root Vitest checks runtime behavior. Demo Vitest checks the real Hono/Workers Express entries in local workerd. Chromium/WebKit tests check both framework contracts offline plus browser FormData, base URI, HEAD and immediate cancellation using the built library. The separate experiment adds nine tests in each browser, including startup failure, statusText, completed-call cleanup, abort after headers (including a null reason), and source cancellation failure. This does not establish full runtime compatibility. Native results cover the experimental transport, not a full rerun of every library API on physical devices.
+Root Vitest checks runtime behavior. Demo Vitest checks the real Hono/Workers Express entries in local workerd. Chromium/WebKit tests check both framework contracts offline plus browser FormData, base URI, HEAD and immediate cancellation using the built library. The separate experiment has nine transport tests plus two framework suites in each browser, including startup failure, statusText, completed-call cleanup, abort after headers (including a null reason), and source cancellation failure. This does not establish full runtime compatibility. Native results cover the experimental transport, not a full rerun of every library API on physical devices.
 
 ## Native WebView verification
 
@@ -96,3 +96,28 @@ CAPACITOR_WORKERS_EXPERIMENT=1 npx cap sync
 ```
 
 Restore ordinary demo assets with `npm run build && npx cap sync` (without the environment variable). The checked-in native config defaults to the ordinary demo. Local ignored evidence: `demo/artifacts/native-experiment-{ios26,ios27,android}.{log,json,png}`. Screenshots were visually inspected and match the result logs.
+
+
+## Hono / Workers Express follow-up
+
+Based on main commit 41328d6, the experiment now has separate three-line Hono and Express entrypoints importing the unchanged `workers/hono/standard.ts` and `workers/express/standard.ts`. Each calls the same internal `serve` transport. The existing runtime fixture uses that transport too. No package API, dependency, Worker application logic or native implementation was changed.
+
+The Vite experiment config installs the existing compatibility plugin at the top level (for resolution aliases) and through `worker.plugins` (for the worker build transforms). Installing it only under `worker.plugins` failed to resolve `cloudflare:node` in this build. Static worker entrypoints keep Express and its polyfills out of the Hono worker bundle. Minified, uncompressed worker artifacts measured 20.10 kB for Hono and 1,497.32 kB for Express. Express size remains a PoC limitation; this step does not optimize it.
+
+The browser/native framework contract contains eleven named checks per framework: GET/query, JSON POST/status, route params, middleware, 404, error middleware, empty 204, HEAD, concurrency, Request input, and logical URL/framework identity. The shared contract now consumes the middleware/404 response bodies so completion can release transport resources. Tests also wait for background completion, require no background errors and check active calls return to zero before disposal.
+
+| Environment | Follow-up result |
+| --- | --- |
+| Local workerd | 23 tests passed: 10 each for Hono/Express, plus 3 runtime tests |
+| Chromium + WebKit | 22 Playwright tests passed: 18 transport tests and 4 framework suites (11 checks per suite) |
+| iOS 26.1 Simulator, iPhone 17 Pro | 28/28: Hono 11, Express 11, transport 6 |
+| Android 16 emulator, WebView 134.0.6998.135 | 28/28: the same checks |
+| Ordinary demo, Chromium + WebKit | 4 regression tests passed |
+
+Browser framework suites load their Dedicated Worker, disable networking, then execute all eleven checks and assert no API network request occurred. Native runs use bundled assets and no API server, with the same transport fixture limits described above. The workerd harness compares the common nine API cases plus preserved URL path/query; Request-object input is a browser/native adapter check. The harness chooses its local connection origin, whereas browser/native requests must retain the configured logical origin.
+
+iOS 26.0, physical devices and framework suites on iOS 27 were not tested in this follow-up. The earlier iOS 27 transport result remains historical evidence, not a framework result. Runtime-level outbound fetch/waitUntil behavior is covered by the existing neutral fixture; no new framework-specific outbound routes were added.
+
+Run `npm run test:workers` and `npm run test:experiment` in demo. The native reproduction commands above now run all 28 checks. Follow-up logs, JSON and visually inspected screenshots are saved locally under `demo/artifacts/native-framework-{ios26,android}.{log,json,png}`. Ordinary demo assets/config were restored after validation.
+
+**Next boundary:** this establishes that the tested unchanged framework handlers execute through the shared isolated transport. Promoting that transport to the library and designing minimal build/setup configuration remain separate work. Native binding bridges, upload streaming and broader Workers compatibility remain out of scope.
