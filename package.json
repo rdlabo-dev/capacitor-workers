@@ -18,6 +18,18 @@
     "./client": {
       "types": "./dist/client.d.ts",
       "import": "./dist/client.js"
+    },
+    "./features": {
+      "types": "./dist/features/index.d.ts",
+      "import": "./dist/features/index.js"
+    },
+    "./testing": {
+      "types": "./dist/features/testing.d.ts",
+      "import": "./dist/features/testing.js"
+    },
+    "./features/fetch": {
+      "types": "./dist/features/fetch.d.ts",
+      "import": "./dist/features/fetch.js"
     }
   },
   "scripts": {

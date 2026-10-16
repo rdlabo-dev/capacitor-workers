@@ -1,12 +1,5 @@
-import {
-  DirectFetchRuntime,
-  IsolatedFetchRuntime,
-} from "./fetch/worker-runtime.js";
-import type {
-  CapacitorWorkersOptions,
-  WorkerFactory,
-  WorkerHandler,
-} from "./fetch/types.js";
+import { createFetchRuntime } from "./fetch/worker-runtime.js";
+import type { CapacitorWorkersOptions } from "./fetch/types.js";
 export type {
   CapacitorWorkersOptions,
   WorkerContext,
@@ -23,14 +16,8 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
 ) {
   if (installed)
     throw new Error("capacitorWorkers is already installed; dispose it first.");
-  const hasFetch =
-    typeof (options.worker as WorkerHandler<Env>)?.fetch === "function";
-  if (!hasFetch && typeof options.worker !== "function")
-    throw new TypeError("worker.fetch is required.");
   const original = globalThis.fetch;
-  const runtime = hasFetch
-    ? new DirectFetchRuntime(options, options.worker as WorkerHandler<Env>)
-    : new IsolatedFetchRuntime(options, options.worker as WorkerFactory);
+  const runtime = createFetchRuntime(options);
   globalThis.fetch = runtime.fetch;
   installed = true;
   let disposed = false;

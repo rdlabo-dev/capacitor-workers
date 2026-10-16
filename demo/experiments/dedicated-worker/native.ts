@@ -180,6 +180,33 @@ export async function runNativeExperiment() {
       runtime?.dispose();
     }
   }
+  let featureTimer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const reports = await Promise.race([
+      window.runFeatures(),
+      new Promise<never>((_, reject) => {
+        featureTimer = setTimeout(
+          () => reject(new Error("Feature verification timed out")),
+          15000,
+        );
+      }),
+    ]);
+    for (const report of reports)
+      for (const test of report.cases)
+        results.push({
+          name: `${report.environment}: ${report.feature}/${test.id}`,
+          ok: test.status === "passed",
+          error: test.reason,
+        });
+  } catch (error) {
+    results.push({
+      name: "common feature verification",
+      ok: false,
+      error: String(error),
+    });
+  } finally {
+    clearTimeout(featureTimer);
+  }
   const report = {
     platform: Capacitor.getPlatform(),
     url: location.href,
