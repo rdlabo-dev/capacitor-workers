@@ -5,6 +5,8 @@ export default defineConfig(({ mode }) => {
   const framework = mode === "express" ? "express" : "hono";
   return {
     base: "./",
+    // The configured Worker is loaded lazily; optimize its framework before tests.
+    optimizeDeps: { include: [framework] },
     root: fileURLToPath(new URL(".", import.meta.url)),
     plugins: [
       capacitorWorkersPlugin({ worker: `../workers/${framework}/standard.ts` }),
