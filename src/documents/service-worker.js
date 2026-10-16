@@ -1,4 +1,28 @@
 // Native Android document transport. Bundled assets bypass the Worker router.
+// Persist shutdown across SW idle termination while an old page is still controlled.
+const lifecycleCache = "capacitor-workers-document-lifecycle";
+const disabledKey = new URL("/capacitor-workers-disabled", self.location.href)
+  .href;
+let disabled = false;
+self.addEventListener("message", (event) => {
+  if (
+    ![
+      "capacitor-workers:disable-documents",
+      "capacitor-workers:enable-documents",
+    ].includes(event.data)
+  )
+    return;
+  disabled = event.data === "capacitor-workers:disable-documents";
+  const stopping = disabled;
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(lifecycleCache);
+      if (stopping) await cache.put(disabledKey, new Response("disabled"));
+      else await cache.delete(disabledKey);
+      event.ports[0]?.postMessage("done");
+    })(),
+  );
+});
 const baseURL = new URL(self.location.href).searchParams.get("baseURL");
 // Read the current manifest: a previously installed SW can outlive an app update.
 function assets() {
@@ -18,17 +42,22 @@ self.addEventListener("activate", (event) =>
   event.waitUntil(self.clients.claim()),
 );
 self.addEventListener("fetch", (event) => {
+  if (disabled) return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   event.respondWith(
-    assets().then((paths) => {
+    (async () => {
+      if (await (await caches.open(lifecycleCache)).match(disabledKey))
+        return fetch(event.request);
+      const paths = await assets();
+      if (disabled) return fetch(event.request);
       if (
         paths.includes(url.pathname) ||
         url.pathname.startsWith("/_capacitor_")
       )
         return fetch(event.request);
       return dispatch(event.request);
-    }),
+    })(),
   );
 });
 async function dispatch(request) {

@@ -1,3 +1,9 @@
+import {
+  enableDocumentWorker,
+  isDocumentWorker,
+  registerDocumentWorker,
+  stopDocumentWorker,
+} from "./registration.js";
 import { installDocumentHost, type DocumentRuntime } from "./host.js";
 interface NativeBridge {
   getPlatform(): string;
@@ -27,6 +33,9 @@ function bridge(): NativeBridge | undefined {
     };
   return (globalThis as typeof globalThis & { Capacitor?: NativeBridge })
     .Capacitor;
+}
+export function clearPreviousRendering() {
+  if (bridge()?.getPlatform() === "android") return stopDocumentWorker();
 }
 export function validateRendering(render: string, baseURL: string) {
   const base = new URL(baseURL);
@@ -113,9 +122,8 @@ export function startRendering(
     });
     if (closed) throw new Error("Document rendering disposed");
     if (native.getPlatform() === "android") {
-      await navigator.serviceWorker.register(
-        "/capacitor-workers-sw.js?baseURL=" +
-          encodeURIComponent(new URL(baseURL).origin),
+      const registration = await registerDocumentWorker(
+        new URL(baseURL).origin,
       );
       await new Promise<void>((resolve, reject) => {
         const workers = navigator.serviceWorker;
@@ -126,7 +134,13 @@ export function startRendering(
           error ? reject(error) : resolve();
         };
         const controlled = () => {
-          if (workers.controller) finish();
+          if (
+            !registration.installing &&
+            !registration.waiting &&
+            workers.controller === registration.active &&
+            isDocumentWorker(workers.controller)
+          )
+            finish();
         };
         const aborted = () => finish(new Error("Document rendering disposed"));
         const timer = setTimeout(
@@ -139,15 +153,21 @@ export function startRendering(
         else workers.ready.then(controlled, (error) => finish(error));
       });
       if (closed) throw new Error("Document rendering disposed");
+      await enableDocumentWorker();
+      if (closed) throw new Error("Document rendering disposed");
       location.replace(render);
     }
   })();
   // A failed start must also release native resources. The installer restores fetch.
   const settled = ready.catch(async (error) => {
     uninstall();
-    if (started) {
-      started = false;
-      await call("stop").catch(() => {});
+    try {
+      if (native.getPlatform() === "android") await stopDocumentWorker();
+    } finally {
+      if (started) {
+        started = false;
+        await call("stop").catch(() => {});
+      }
     }
     throw error;
   });
@@ -158,11 +178,15 @@ export function startRendering(
       startup.abort();
       uninstall();
       // Native stop also rejects Android's pending host-start call.
-      if (started) {
-        started = false;
-        await call("stop");
+      try {
+        if (started) {
+          started = false;
+          await call("stop");
+        }
+      } finally {
+        await settled.catch(() => {});
+        if (native.getPlatform() === "android") await stopDocumentWorker();
       }
-      await settled.catch(() => {});
     },
   };
 }

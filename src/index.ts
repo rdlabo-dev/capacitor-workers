@@ -1,4 +1,8 @@
-import { startRendering, validateRendering } from "./documents/runtime.js";
+import {
+  clearPreviousRendering,
+  startRendering,
+  validateRendering,
+} from "./documents/runtime.js";
 import { createFetchRuntime } from "./fetch/worker-runtime.js";
 import type { CapacitorWorkersOptions } from "./fetch/types.js";
 export type {
@@ -43,16 +47,22 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
     installed = false;
     throw error;
   }
-  const ready =
-    documents?.ready.catch((error) => {
-      if (!disposed) {
-        runtime.dispose();
-        if (globalThis.fetch === runtime.fetch) globalThis.fetch = original;
-        installed = false;
-        disposed = true;
-      }
-      throw error;
-    }) ?? runtime.ready;
+  const previousRendering = documents ? undefined : clearPreviousRendering();
+  const ready = (
+    documents?.ready ??
+    Promise.allSettled([runtime.ready, previousRendering]).then((results) => {
+      for (const result of results)
+        if (result.status === "rejected") throw result.reason;
+    })
+  ).catch((error) => {
+    if (!disposed) {
+      runtime.dispose();
+      if (globalThis.fetch === runtime.fetch) globalThis.fetch = original;
+      installed = false;
+      disposed = true;
+    }
+    throw error;
+  });
   let disposal: Promise<void> | undefined;
   return {
     ready,
@@ -71,6 +81,12 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
       disposed = true;
       if (documents) {
         disposal = documents.dispose().finally(() => {
+          installed = false;
+        });
+        return disposal;
+      }
+      if (previousRendering) {
+        disposal = previousRendering.finally(() => {
           installed = false;
         });
         return disposal;

@@ -26,3 +26,14 @@ await build({
     new URL("artifacts/native-documents/page-fetch.js", demo),
   ),
 });
+
+// Deliberately absent from the manifest: shutdown must restore native asset handling.
+const { writeFile } = await import("node:fs/promises");
+await writeFile(
+  new URL("artifacts/native-documents/after-dispose.html", demo),
+  "<!doctype html><h1>Native asset after disposal</h1>",
+);
+await writeFile(
+  new URL("artifacts/native-documents/application-sw.js", demo),
+  "self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));",
+);

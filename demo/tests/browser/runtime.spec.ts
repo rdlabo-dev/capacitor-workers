@@ -9,6 +9,7 @@ test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
     "configured.js",
     "documents/runtime.js",
     "documents/host.js",
+    "documents/registration.js",
     "fetch/runtime.js",
     "fetch/worker-runtime.js",
     "isolated/bridge.js",

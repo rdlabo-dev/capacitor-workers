@@ -30,8 +30,8 @@ adapter does not add an application router. Existing `worker`, `env`, `prefer`,
 
 `ready` means that the Worker and native connection are initialized. It does not
 mean all images or page scripts have finished loading. `await app.dispose()`
-releases the document connection and runtime. Fetch-only disposal remains
-synchronous. Startup errors restore the original fetch implementation.
+releases the document connection and runtime. Fetch-only disposal remains synchronous except while Android is clearing a
+previous document registration. Startup errors restore the original fetch implementation.
 
 ## Build configuration
 
@@ -130,3 +130,29 @@ Hono/Express), Workers tests 58/58, existing Fetch-only browser tests 8/8, and
 library/demo typechecks. Reports are saved locally under
 `demo/artifacts/public-documents-*`; native overlays and debug forwarding are
 removed after validation.
+
+### Shutdown and trust boundary
+
+Android shutdown and failed startup disable and unregister only this library's
+Service Worker. Fetch-only startup also clears an earlier document registration;
+await `ready` before using the application. Already controlled pages switch to
+native request handling without waiting for navigation. The disabled state is
+persisted across Service Worker idle termination. Older transports without the
+shutdown protocol require a reload after unregistration. Android Fetch-only
+`dispose()` can return a promise while this migration is pending.
+
+An existing application Service Worker at the root scope is not overwritten.
+Document rendering reports a conflict instead. Other application registrations
+are not removed during cleanup.
+
+The bundled Worker and the HTML it produces are trusted application code. Pages
+run at the Capacitor local origin and can access the application's native plugins,
+just like bundled HTML. Rendering is not a sandbox for untrusted HTML; applications
+must escape untrusted values and must not render arbitrary remote HTML as trusted
+application pages. This trust model applies to both iOS and Android.
+
+Lifecycle follow-up validation: library tests 130/130; build tests 7/7;
+Fetch-only browser regression 8/8; document browser suite 66 successes and six
+expected WebKit comparison failures. Android 16 again passed Hono 50/50 and
+Express 50/50, with native Fetch-only migration/registration cleanup checks.
+The iOS native bridge was unchanged and was not rerun for this follow-up.

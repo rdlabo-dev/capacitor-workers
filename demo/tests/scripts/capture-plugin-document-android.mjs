@@ -55,6 +55,67 @@ try {
   await writeFile(prefix + ".png", Buffer.from(shot.data, "base64"));
   if (report.cases.length !== 50) throw new Error("Expected 50 checks");
   console.log(framework + ": 50/50 native checks passed");
+  if (process.argv.includes("--lifecycle")) {
+    const { build } = await import("esbuild");
+    const bundle = await build({
+      entryPoints: [
+        new URL("../../../dist/index.js", import.meta.url).pathname,
+      ],
+      bundle: true,
+      format: "iife",
+      globalName: "DocumentLifecycleTest",
+      write: false,
+    });
+    const loaded = await call("Runtime.evaluate", {
+      expression: bundle.outputFiles[0].text,
+    });
+    if (loaded.exceptionDetails)
+      throw new Error("Failed to load lifecycle probe");
+    const checked = await call("Runtime.evaluate", {
+      expression: `(async () => {
+        const before = await navigator.serviceWorker.getRegistrations();
+        const hadDocumentRegistration = before.some(r => [r.active,r.waiting,r.installing].some(w => w && new URL(w.scriptURL).pathname === "/capacitor-workers-sw.js"));
+        const app = DocumentLifecycleTest.capacitorWorkers({
+          baseURL: "https://worker.invalid/api",
+          worker: {fetch: () => new Response("fetch-only")},
+        });
+        try {
+          await app.ready;
+          const response = await fetch("/unlisted-lifecycle-check.html");
+          const text = await response.text();
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          return {hadDocumentRegistration, controlled: !!navigator.serviceWorker.controller,
+            documentRegistrations: registrations.filter(r => [r.active,r.waiting,r.installing].some(w => w && new URL(w.scriptURL).pathname === "/capacitor-workers-sw.js")).length,
+            nativeAssetFallback: response.status === 404 && text === "",
+            nativeStatus: response.status, nativeBody: text,
+            api: await (await fetch("/api/check")).text()};
+        } finally {
+          await app.dispose();
+          await Capacitor.nativePromise("CapacitorWorkers", "stop", {});
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const result = checked.result?.value;
+    if (
+      checked.exceptionDetails ||
+      !result?.hadDocumentRegistration ||
+      !result.controlled ||
+      result.documentRegistrations !== 0 ||
+      !result.nativeAssetFallback ||
+      result.api !== "fetch-only"
+    )
+      throw new Error("Native lifecycle: " + JSON.stringify(checked));
+    await writeFile(
+      prefix + "-lifecycle.json",
+      JSON.stringify(result, null, 2),
+    );
+    console.log(
+      framework +
+        ": native Fetch-only migration, current-client passthrough and registration cleanup passed",
+    );
+  }
   if (process.argv.includes("--cleanup")) {
     const cleanup = await call("Runtime.evaluate", {
       expression:

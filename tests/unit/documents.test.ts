@@ -157,3 +157,79 @@ it("keeps redirects inside the Worker origin and preserves POST for 307", async 
     }),
   ).rejects.toThrow("outside the local origin");
 });
+
+function android() {
+  const sw = {
+    scriptURL:
+      "https://localhost/capacitor-workers-sw.js?baseURL=https%3A%2F%2Fworker.example",
+    postMessage: vi.fn((_message, ports) => {
+      ports[0].postMessage("done");
+      ports[0].close();
+    }),
+  };
+  const registration = {
+    active: sw,
+    installing: null,
+    waiting: null,
+    unregister: vi.fn(async () => true),
+  };
+  const events = new EventTarget();
+  const container = Object.assign(events, {
+    controller: sw,
+    ready: Promise.resolve(registration),
+    getRegistrations: vi.fn(async () => [registration]),
+    getRegistration: vi.fn(async () => registration),
+    register: vi.fn(async () => registration),
+  });
+  vi.stubGlobal("navigator", { serviceWorker: container });
+  vi.stubGlobal("location", {
+    href: "https://localhost/index.html",
+    origin: "https://localhost",
+    protocol: "https:",
+    host: "localhost",
+    replace: vi.fn(),
+    reload: vi.fn(),
+  });
+  vi.stubGlobal("Capacitor", {
+    getPlatform: () => "android",
+    isPluginAvailable: () => true,
+    nativePromise: native,
+  });
+  return { sw, registration, container };
+}
+it("Android disposal disables its transport and unregisters it", async () => {
+  const s = android();
+  runtime = capacitorWorkers(options);
+  await runtime.ready;
+  await runtime.dispose();
+  expect(s.sw.postMessage.mock.calls.map((c) => c[0])).toContain(
+    "capacitor-workers:disable-documents",
+  );
+  expect(s.registration.unregister).toHaveBeenCalled();
+  expect(native).toHaveBeenCalledWith("CapacitorWorkers", "stop", {});
+});
+it("Android startup failure also releases an old document registration", async () => {
+  const s = android();
+  native.mockRejectedValueOnce(new Error("Native failed"));
+  runtime = capacitorWorkers(options);
+  await expect(runtime.ready).rejects.toThrow("Native failed");
+  expect(s.registration.unregister).toHaveBeenCalledOnce();
+});
+it("disposal waits for a pending SW registration and removes it after it resolves", async () => {
+  const s = android();
+  let resolve!: (value: typeof s.registration) => void;
+  s.container.register.mockImplementation(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  runtime = capacitorWorkers(options);
+  const ready = runtime.ready.catch((error) => error);
+  await vi.waitFor(() => expect(s.container.register).toHaveBeenCalled());
+  const stopped = runtime.dispose();
+  resolve(s.registration);
+  await stopped;
+  expect((await ready).message).toContain("disposed");
+  expect(s.registration.unregister).toHaveBeenCalled();
+});

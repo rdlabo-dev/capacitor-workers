@@ -5,7 +5,7 @@ const script = readFileSync(
   new URL("../../src/documents/service-worker.js", import.meta.url),
   "utf8",
 );
-function setup() {
+function setup(cache = new Map<string, Response>()) {
   let assets = ["/index.html"];
   let hostAvailable = true;
   const listeners = new Map<string, (event: any) => void>();
@@ -31,6 +31,15 @@ function setup() {
     setTimeout,
     clearTimeout,
     fetch: nativeFetch,
+    caches: {
+      open: async () => ({
+        match: async (key: string) => cache.get(key),
+        put: async (key: string, value: Response) => {
+          cache.set(key, value);
+        },
+        delete: async (key: string) => cache.delete(key),
+      }),
+    },
     self: {
       location: new URL(
         "https://localhost/capacitor-workers-sw.js?baseURL=https%3A%2F%2Fworker.example",
@@ -56,6 +65,21 @@ function setup() {
   return {
     setHostAvailable: (value: boolean) => {
       hostAvailable = value;
+    },
+    async disable(disabled = true) {
+      let pending!: Promise<void>;
+      const port = { postMessage: vi.fn() };
+      listeners.get("message")!({
+        data: disabled
+          ? "capacitor-workers:disable-documents"
+          : "capacitor-workers:enable-documents",
+        ports: [port],
+        waitUntil: (value: Promise<void>) => {
+          pending = value;
+        },
+      });
+      await pending;
+      expect(port.postMessage).toHaveBeenCalledWith("done");
     },
     dispatch,
     nativeFetch,
@@ -139,4 +163,31 @@ it("loads the bundled bootstrap when a persisted SW has no native host", async (
     "https://localhost/index.html",
     { cache: "no-store" },
   );
+});
+
+it("stops intercepting existing clients after disable, including navigation and POST", async () => {
+  const sw = setup();
+  await sw.disable();
+  sw.setHostAvailable(false);
+  const navigation = new Request("https://localhost/about");
+  Object.defineProperty(navigation, "mode", { value: "navigate" });
+  expect(sw.fetch(navigation)).toBeUndefined();
+  expect(
+    sw.fetch(
+      new Request("https://localhost/api", { method: "POST", body: "data" }),
+    ),
+  ).toBeUndefined();
+  expect(sw.nativeFetch).not.toHaveBeenCalled();
+  expect(sw.dispatch).not.toHaveBeenCalled();
+});
+
+it("keeps shutdown across a SW restart and explicitly enables a new rendering session", async () => {
+  const cache = new Map<string, Response>();
+  await setup(cache).disable();
+  const restarted = setup(cache);
+  const request = new Request("https://localhost/about");
+  expect(await (await restarted.fetch(request))!.text()).toBe("asset");
+  expect(restarted.dispatch).not.toHaveBeenCalled();
+  await restarted.disable(false);
+  expect(await (await restarted.fetch(request))!.text()).toBe("worker");
 });

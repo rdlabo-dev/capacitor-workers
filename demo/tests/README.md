@@ -111,10 +111,22 @@ Unlike the original experiment, the public-entry driver leaves the Android
 Service Worker registered. Force-stop and relaunch the app to verify startup
 with a persisted Service Worker, then capture a second fresh report. The driver
 clears its prior report on the first page and only exposes the final report element
-when navigation checks finish. When switching back to the Fetch-only demo,
-pass `--cleanup` to the capture script to unregister the document Service Worker in the installed test app.
+when navigation checks finish. Pass `--lifecycle` to the capture script after the final acceptance run to test
+Fetch-only migration through the public API in the current native WebView. It
+requires an existing document registration, checks its removal, verifies native
+handling of an unlisted missing asset and the new local API, then stops the old
+native host. Evidence is saved as `public-documents-*-android-lifecycle.json`.
+The optional `--cleanup` flag only unregisters transports for manual test cleanup;
+it does not substitute for the lifecycle assertions.
 
 The native overlays only register the source integration and inject the test
 driver/report collection. No diagnostic hooks are in `native/` itself. Keep all
 three concerns separate: application code (`rendering/`), library implementation
 (`../src`, `../native`), and instrumentation (`tests/`).
+
+The document browser suite also tests shutdown and re-registration with the real
+production Service Worker in Chromium/WebKit. The lifecycle fixture and an asset
+intentionally omitted from its manifest verify that already controlled clients
+return to native asset handling. Unit tests cover startup failure, disposal while
+registration is pending, legacy transport migration, unrelated registrations and
+persisted shutdown across Service Worker restarts.

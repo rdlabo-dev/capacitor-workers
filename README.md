@@ -45,6 +45,9 @@ packaging is deferred. See the [API guide](docs/native-rendering-api.md) and
 [Hono/Express rendering demo](demo/rendering). Omitting `render` keeps the
 Fetch-only behavior described above.
 
+Worker-generated pages are trusted application code and run with the app's
+Capacitor plugin access. Native rendering does not sandbox untrusted HTML.
+
 ## Build setup
 
 ### Supported builds

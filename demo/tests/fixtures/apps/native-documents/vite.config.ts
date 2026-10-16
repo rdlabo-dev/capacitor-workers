@@ -10,7 +10,11 @@ export default defineConfig({
     emptyOutDir: true,
     target: "es2022",
     rollupOptions: {
-      input: { index: here("index.html"), runtime: here("runtime.html") },
+      input: {
+        index: here("index.html"),
+        runtime: here("runtime.html"),
+        lifecycle: here("lifecycle.html"),
+      },
     },
   },
 });
