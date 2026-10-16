@@ -14,22 +14,24 @@ The path is relative to the configured Vite root, `src/`. The example uses [the 
 
 ## 2. Initialize the runtime
 
-[src/main.ts](src/main.ts) contains the complete runtime setup:
+[src/main.ts](src/main.ts) initializes the runtime, waits for it to be ready, and starts the app:
 
 ```ts
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
+import { startApp } from "./app";
 
 const runtime = capacitorWorkers({
   baseURL: "https://worker.invalid/api/",
 });
 await runtime.ready;
+await startApp();
 ```
 
 `baseURL` selects the API origin and path handled locally. Here, `/api/...` calls run in the configured Worker without contacting `worker.invalid`.
 
 ## 3. Use ordinary fetch calls in your screen
 
-[src/ui/display.ts](src/ui/display.ts) waits for initialization, calls `fetch("/api/hello?name=Capacitor")`, and displays the response. This is example screen code; it is not additional library configuration.
+[src/app.ts](src/app.ts) calls `fetch("/api/hello?name=Capacitor")`, and displays the response. This is example screen code; it is not additional library configuration.
 
 ## Run the demo
 
