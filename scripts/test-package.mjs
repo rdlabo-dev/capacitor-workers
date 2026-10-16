@@ -33,10 +33,12 @@ execFileSync(
 for (const entry of [
   "build-tools",
   "scripts/build-tools.mjs",
+  "validation",
   "workers",
   "features",
   "public",
   "main.ts",
+  "display.ts",
   "index.html",
   "contract.ts",
   "cloudflare.d.ts",
@@ -48,7 +50,7 @@ for (const entry of [
 await writeFile(
   join(temp, "vite.config.mjs"),
   `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo',plugins:[capacitorWorkersPlugin()],build:{outDir:'../build',target:'es2022'}};`,
+export default {root:'demo',plugins:[capacitorWorkersPlugin({worker:'./workers/hono/standard.ts'})],build:{outDir:'../build',target:'es2022',rollupOptions:{input:{demo:'demo/index.html',validation:'demo/validation/index.html'}}}};`,
 );
 execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
   cwd: temp,
@@ -157,7 +159,7 @@ try {
   }
   browser = await chromium.launch();
   const page = await browser.newPage();
-  await page.goto("http://127.0.0.1:4189");
+  await page.goto("http://127.0.0.1:4189/validation/");
   await page.waitForFunction(() => window.pocDone);
   const results = await page.evaluate(() => window.pocResults);
   if (results?.length !== 26 || results.some((r) => !r.ok))

@@ -12,7 +12,7 @@ test("Hono and real Express run entirely in the browser", async ({
     )
       apiRequests.push(request.url());
   });
-  await page.goto("/");
+  await page.goto("/validation/");
   await page.waitForFunction(() => window.pocDone);
   const results = await page.evaluate(() => window.pocResults);
   expect(results, await page.locator("pre").innerText()).toHaveLength(26);

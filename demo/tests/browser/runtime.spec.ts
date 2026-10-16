@@ -17,7 +17,7 @@ test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
       route.fulfill({ contentType: "text/javascript", body: source }),
     );
   }
-  await page.goto("/");
+  await page.goto("/validation/");
   await page.waitForFunction(() => window.pocDone);
   const result = await page.evaluate(async () => {
     const moduleURL = "/runtime-under-test/index.js";

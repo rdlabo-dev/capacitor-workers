@@ -9,5 +9,12 @@
     "esModuleInterop": true,
     "types": ["node"]
   },
-  "include": ["*.ts", "workers", "tests", "experiments", "build-tools"]
+  "include": [
+    "*.ts",
+    "workers",
+    "tests",
+    "experiments",
+    "build-tools",
+    "validation"
+  ]
 }

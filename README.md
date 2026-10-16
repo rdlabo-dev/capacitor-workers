@@ -207,6 +207,8 @@ npm run test:package
 
 The validation app is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
 
+`demo/main.ts` shows only runtime initialization and a normal fetch call. `demo/display.ts` handles the example screen. The separate `demo/validation/` page runs compatibility checks; open it using the link on the demo screen.
+
 Worker fixtures are organized as `demo/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; additional scenarios can be added alongside them.
 
 ```sh
@@ -240,7 +242,7 @@ npm run ios
 npm run android
 ```
 
-Android requires Java 21+. The demo bundles both Workers and runs 26 checks automatically. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
+Android requires Java 21+. The demo opens the minimal Hono example. Its separate compatibility page bundles both Workers and runs 26 checks when opened. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
 
 ### Continuous integration
 
