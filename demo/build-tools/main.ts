@@ -2,7 +2,7 @@ import {
   capacitorWorkers,
   type ExecutionPreference,
 } from "@rdlabo/capacitor-workers";
-import { runContract } from "../contract";
+import { runContract } from "../src/contract";
 
 async function run(prefer: ExecutionPreference) {
   // Both build integrations provide the configured entry; no special import.

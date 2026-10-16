@@ -4,7 +4,7 @@ import { capacitorWorkersPlugin } from "@rdlabo/capacitor-workers/vite";
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
   plugins: [
-    capacitorWorkersPlugin({ worker: "../../workers/runtime/isolation.ts" }),
+    capacitorWorkersPlugin({ worker: "../../src/workers/runtime/isolation.ts" }),
   ],
   build: {
     outDir: fileURLToPath(

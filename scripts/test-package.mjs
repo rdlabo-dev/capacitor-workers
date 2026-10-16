@@ -33,16 +33,8 @@ execFileSync(
 for (const entry of [
   "build-tools",
   "scripts/build-tools.mjs",
-  "validation",
-  "workers",
-  "features",
+  "src",
   "public",
-  "main.ts",
-  "display.ts",
-  "index.html",
-  "contract.ts",
-  "cloudflare.d.ts",
-  "client.d.ts",
   "experiments/dedicated-worker",
 ]) {
   await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
@@ -50,7 +42,7 @@ for (const entry of [
 await writeFile(
   join(temp, "vite.config.mjs"),
   `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo',plugins:[capacitorWorkersPlugin({worker:'./workers/hono/standard.ts'})],build:{outDir:'../build',target:'es2022',rollupOptions:{input:{demo:'demo/index.html',validation:'demo/validation/index.html'}}}};`,
+export default {root:'demo/src',publicDir:'../public',plugins:[capacitorWorkersPlugin({worker:'./workers/hono/standard.ts'})],build:{outDir:'../../build',target:'es2022',rollupOptions:{input:{demo:'demo/src/index.html',validation:'demo/src/validation/index.html'}}}};`,
 );
 execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
   cwd: temp,
@@ -59,7 +51,7 @@ execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
 await writeFile(
   join(temp, "consumer.ts"),
   `/// <reference types="@rdlabo/capacitor-workers/client" />
-import worker from "./demo/workers/hono/standard?capacitor-worker";
+import worker from "./demo/src/workers/hono/standard?capacitor-worker";
 import { capacitorWorkers, FetchRuntime, type WorkerContext } from "@rdlabo/capacitor-workers";
 class ExampleRuntime extends FetchRuntime<{ label: string }> {
   protected dispatch(request: Request, env: { label: string }, ctx: WorkerContext) {
@@ -168,7 +160,7 @@ try {
   await writeFile(
     join(temp, "vite.config.mjs"),
     `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin({worker:'../../workers/runtime/isolation.ts'})],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
+export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin({worker:'../../src/workers/runtime/isolation.ts'})],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
   );
   execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
     cwd: temp,

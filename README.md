@@ -207,9 +207,22 @@ npm run test:package
 
 The validation app is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
 
-`demo/main.ts` shows only runtime initialization and a normal fetch call. `demo/display.ts` handles the example screen. The separate `demo/validation/` page runs compatibility checks; open it using the link on the demo screen.
+The demo layout separates application sources from tooling:
 
-Worker fixtures are organized as `demo/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; additional scenarios can be added alongside them.
+```text
+demo/
+  src/              Application entry, display, Workers and validation page
+  public/           Static assets
+  tests/            Automated tests
+  experiments/      Dedicated Worker experiment
+  build-tools/      Build integration fixtures
+  scripts/          Build helpers
+  ios/, android/    Native projects
+```
+
+`demo/src/main.ts` shows only runtime initialization and a normal fetch call. `demo/src/display.ts` handles the example screen. The separate `demo/src/validation/` page runs compatibility checks; open it using the link on the demo screen.
+
+Worker fixtures are organized as `demo/src/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; additional scenarios can be added alongside them.
 
 ```sh
 cd demo

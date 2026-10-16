@@ -1,4 +1,4 @@
-import { runContract, type Result } from "../../contract";
+import { runContract, type Result } from "../../src/contract";
 
 export async function runFrameworkContract(
   framework: "hono" | "express",

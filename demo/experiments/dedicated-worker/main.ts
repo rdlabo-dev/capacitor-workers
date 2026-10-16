@@ -1,10 +1,10 @@
-import { kvRequest } from "../../features/kv";
-import { runFeatures } from "../../features/run";
+import { kvRequest } from "../../src/features/kv";
+import { runFeatures } from "../../src/features/run";
 import { Capacitor } from "@capacitor/core";
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
-import isolation from "../../workers/runtime/isolation?capacitor-worker";
-import hono from "../../workers/hono/standard?capacitor-worker";
-import express from "../../workers/express/standard?capacitor-worker";
+import isolation from "../../src/workers/runtime/isolation?capacitor-worker";
+import hono from "../../src/workers/hono/standard?capacitor-worker";
+import express from "../../src/workers/express/standard?capacitor-worker";
 import { runFrameworkContract } from "./frameworks";
 
 export type Framework = "hono" | "express";
@@ -79,7 +79,8 @@ export function startStartupProbe() {
         throw new Error("Direct-only regression fixture");
       },
       loadDirect: async () =>
-        (await import("../../workers/runtime/direct-startup-fetch")).default,
+        (await import("../../src/workers/runtime/direct-startup-fetch"))
+          .default,
     },
   });
 }
@@ -97,7 +98,7 @@ export function startDelayedDirect() {
       },
       loadDirect: async () => {
         await gate;
-        return (await import("../../workers/runtime/isolation")).default;
+        return (await import("../../src/workers/runtime/isolation")).default;
       },
     },
   });

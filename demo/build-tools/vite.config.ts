@@ -9,7 +9,9 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: { include: [framework] },
     root: fileURLToPath(new URL(".", import.meta.url)),
     plugins: [
-      capacitorWorkersPlugin({ worker: `../workers/${framework}/standard.ts` }),
+      capacitorWorkersPlugin({
+        worker: `../src/workers/${framework}/standard.ts`,
+      }),
     ],
     build: {
       outDir: fileURLToPath(

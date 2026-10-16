@@ -23,7 +23,9 @@ for (const framework of ["hono", "express"]) {
     assetNames: "assets/[name]-[hash]",
     chunkNames: "chunks/[name]-[hash]",
     plugins: [
-      capacitorWorkersPlugin({ worker: `workers/${framework}/standard.ts` }),
+      capacitorWorkersPlugin({
+        worker: `src/workers/${framework}/standard.ts`,
+      }),
     ],
   });
   await writeFile(

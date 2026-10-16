@@ -4,13 +4,13 @@ export const workers = {
   hono: {
     name: "capacitor-workers-poc-hono",
     compatibilityDate: "2026-10-01",
-    entrypoint: "workers/hono/standard.ts",
+    entrypoint: "src/workers/hono/standard.ts",
     compatibilityFlags: [],
   },
   express: {
     name: "capacitor-workers-poc-express",
     compatibilityDate: "2026-10-01",
-    entrypoint: "workers/express/standard.ts",
+    entrypoint: "src/workers/express/standard.ts",
     compatibilityFlags: ["nodejs_compat"],
   },
 };

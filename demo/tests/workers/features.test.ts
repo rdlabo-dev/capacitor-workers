@@ -13,7 +13,7 @@ const http = createTestHarness({
     {
       config: {
         name: "feature-fetch",
-        main: "workers/features/fetch.ts",
+        main: "src/workers/features/fetch.ts",
         compatibility_date: "2026-10-01",
       },
     },
@@ -24,7 +24,7 @@ const services = createTestHarness({
     {
       config: {
         name: "feature-services",
-        main: "workers/features/services.ts",
+        main: "src/workers/features/services.ts",
         compatibility_date: "2026-10-01",
         kv_namespaces: [
           { binding: "TEXT", id: "00000000000000000000000000000001" },

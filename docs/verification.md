@@ -17,7 +17,7 @@ Implemented on branch `poc/workers-webview`. No cloud deployment or npm publicat
 
 Native builds use Capacitor 8.5.3 and bundled assets, without `server.url`. Both platform screenshots show the actual platform and every successful check. Native physical devices and cloud-hosted Workers were not tested. Local workerd is sufficient for this first API compatibility check; any later live deployment should use the requested `rdlabo-dev` account.
 
-The same `demo/workers/hono/standard.ts` and `demo/workers/express/standard.ts` files run in workerd and the WebView. Express is 5.3.0; Hono is 4.13.13. The common API contract covers GET/query, POST/Unicode JSON/status, nested routing, middleware headers, 404, error middleware, 204, HEAD and concurrent calls. WebView checks add Request input, URL mapping, env, waitUntil success/failure and original-fetch passthrough.
+The same `demo/src/workers/hono/standard.ts` and `demo/src/workers/express/standard.ts` files run in workerd and the WebView. Express is 5.3.0; Hono is 4.13.13. The common API contract covers GET/query, POST/Unicode JSON/status, nested routing, middleware headers, 404, error middleware, 204, HEAD and concurrent calls. WebView checks add Request input, URL mapping, env, waitUntil success/failure and original-fetch passthrough.
 
 `baseURL` points at `https://worker.invalid/api/` in the native demo. No API server can satisfy that URL. Browser tests observe zero network requests to the API and repeat the API contract with networking disabled.
 
@@ -98,15 +98,15 @@ Manager review reproduced reentrant disposal from a synchronous abort listener. 
 
 `feat/kv-text-storage` adds `LocalStorageKV` and the exported `kv.text.v1` profile. The demo memory fixture is replaced by a persistent Web Storage adapter. Six shared cases run against that adapter and actual local workerd KV. An unchanged HTTP Worker is separately exercised with both bindings. Application data survives feature disposal; test fixtures delete only their own data.
 
-| Check | Result |
-| --- | --- |
-| Library build, root/demo typecheck | Passed |
-| Root Vitest | 80/80; includes namespace/lifecycle persistence, unsupported options, UTF-8 key bounds, capacity/access errors, unavailable storage and oversized writes |
-| Local workerd | 26/26, including Hono/Express, six shared KV cases and KV HTTP handler |
-| Chromium/WebKit experiment | 26/26, including Hono/Express and document reload persistence/isolation/deletion |
-| Fresh tarball consumer | Direct 26/26, isolated 22/22, common feature cases 16/16 |
-| iOS 26.1 Simulator | 44/44 |
-| Android 16 emulator / WebView 134 | 44/44 |
+| Check                              | Result                                                                                                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Library build, root/demo typecheck | Passed                                                                                                                                                   |
+| Root Vitest                        | 80/80; includes namespace/lifecycle persistence, unsupported options, UTF-8 key bounds, capacity/access errors, unavailable storage and oversized writes |
+| Local workerd                      | 26/26, including Hono/Express, six shared KV cases and KV HTTP handler                                                                                   |
+| Chromium/WebKit experiment         | 26/26, including Hono/Express and document reload persistence/isolation/deletion                                                                         |
+| Fresh tarball consumer             | Direct 26/26, isolated 22/22, common feature cases 16/16                                                                                                 |
+| iOS 26.1 Simulator                 | 44/44                                                                                                                                                    |
+| Android 16 emulator / WebView 134  | 44/44                                                                                                                                                    |
 
 Native runs cover the existing 28 checks plus 16 common feature cases. Before those common cases, the runner also verifies writes through the KV Worker survive feature disposal/recreation. The document reload test was performed in Playwright Chromium/WebKit, not via native application restart. Native logs, JSON and inspected screenshots are local ignored files under `demo/artifacts/native-kv-{ios26,android}.*`. Native assets were restored to the ordinary demo configuration after testing. No physical device, cloud deployment or npm publication was involved.
 
