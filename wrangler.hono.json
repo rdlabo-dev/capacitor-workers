@@ -1,0 +1,5 @@
+{
+  "name": "capacitor-workers-poc-hono",
+  "main": "demo/workers/hono.ts",
+  "compatibility_date": "2026-10-01"
+}

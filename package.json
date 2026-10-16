@@ -1,0 +1,49 @@
+{
+  "name": "@rdlabo/capacitor-workers",
+  "version": "0.0.0-poc.1",
+  "description": "Run Workers fetch handlers inside Capacitor WebViews",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:demo": "vite build",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "test:workers": "node --experimental-strip-types scripts/test-workers.mjs",
+    "test:package": "node scripts/test-package.mjs",
+    "typecheck": "tsc --noEmit",
+    "dev": "vite --host 127.0.0.1",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "vite-plugin-node-polyfills": "^0.28.0"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "@playwright/test": "^1.64.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "express": "^5.3.0",
+    "hono": "^4.13.13",
+    "prettier": "^3.8.4",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.7",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.0"
+  }
+}
