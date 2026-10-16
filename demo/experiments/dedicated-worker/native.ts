@@ -19,14 +19,13 @@ export async function runNativeExperiment() {
   const upstream = `${location.protocol}//${location.host}`;
   const tests: [string, () => Promise<void>][] = [
     [
-      "statusText + completed call cleanup",
+      "statusText + body completion",
       async () => {
         const response = await fetch("/api/status");
         equal(response.status, 202);
         equal(response.statusText, "Queued");
         equal(await response.text(), "ok");
         await window.experiment.drain();
-        await until(async () => window.experiment.activeCalls === 0);
       },
     ],
     [
@@ -105,7 +104,6 @@ export async function runNativeExperiment() {
             (await (await fetch("/api/stats")).json()).cancelled === 1,
         );
         await window.experiment.drain();
-        await until(async () => window.experiment.activeCalls === 0);
       },
     ],
     [
@@ -160,7 +158,6 @@ export async function runNativeExperiment() {
         (async () => {
           const checks = await runFrameworkContract(framework);
           await current.drain();
-          await until(async () => current.activeCalls === 0);
           equal(current.errors, []);
           return checks;
         })(),

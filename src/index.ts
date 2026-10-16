@@ -1,3 +1,5 @@
+import { createIsolatedWorker } from "./isolated/bridge.js";
+
 export interface WorkerContext {
   waitUntil(promise: Promise<unknown>): void;
   passThroughOnException(): void;
@@ -12,8 +14,11 @@ export interface WorkerHandler<Env = Record<string, unknown>> {
   ): Response | Promise<Response>;
 }
 
+/** Produced by the Vite plugin's ?capacitor-worker import. */
+export type WorkerFactory = () => Worker;
+
 export interface CapacitorWorkersOptions<Env> {
-  worker: WorkerHandler<Env>;
+  worker: WorkerHandler<Env> | WorkerFactory;
   /** Absolute HTTP(S) URL. Its path is the interception boundary, not a prefix to append. */
   baseURL: string;
   /** Optional local values; never automatically copies server secrets. */
@@ -41,7 +46,9 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
       "baseURL must be an HTTP(S) URL without credentials, query or fragment.",
     );
   }
-  if (typeof options.worker?.fetch !== "function")
+  const hasFetch =
+    typeof (options.worker as WorkerHandler<Env>)?.fetch === "function";
+  if (!hasFetch && typeof options.worker !== "function")
     throw new TypeError("worker.fetch is required.");
   const boundary = base.pathname.replace(/\/+$/, "");
   const original = globalThis.fetch;
@@ -50,6 +57,11 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
     : undefined;
   const pending = new Set<Promise<void>>();
   const env = options.env ?? ({} as Env);
+  const isolated =
+    !hasFetch && typeof options.worker === "function"
+      ? createIsolatedWorker<Env>(options.worker())
+      : undefined;
+  const handler = isolated?.handler ?? (options.worker as WorkerHandler<Env>);
   const wrapped: typeof fetch = async (input, init) => {
     const isRequest = input instanceof Request;
     const address = isRequest ? input.url : String(input);
@@ -109,7 +121,7 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
       response = await Promise.race([
         Promise.resolve().then(() => {
           request.signal.throwIfAborted();
-          return options.worker.fetch(request, env, ctx);
+          return handler.fetch(request, env, ctx);
         }),
         cancelled,
       ]);
@@ -132,6 +144,7 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
   installed = true;
   let disposed = false;
   return {
+    ready: isolated?.ready ?? Promise.resolve(),
     async drain() {
       while (pending.size) await Promise.all([...pending]);
     },
@@ -141,6 +154,7 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
         throw new Error(
           "fetch changed after installation; restore it before disposing.",
         );
+      isolated?.dispose();
       globalThis.fetch = original;
       installed = false;
       disposed = true;

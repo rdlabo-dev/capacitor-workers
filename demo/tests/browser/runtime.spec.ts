@@ -2,17 +2,19 @@ import { readFile } from "node:fs/promises";
 import { test, expect } from "@playwright/test";
 
 test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
-  const source = await readFile(
-    new URL("../../../dist/index.js", import.meta.url),
-    "utf8",
-  );
-  await page.route("**/runtime-under-test.js", (route) =>
-    route.fulfill({ contentType: "text/javascript", body: source }),
-  );
+  for (const file of ["index.js", "isolated/bridge.js"]) {
+    const source = await readFile(
+      new URL("../../../dist/" + file, import.meta.url),
+      "utf8",
+    );
+    await page.route("**/runtime-under-test/" + file, (route) =>
+      route.fulfill({ contentType: "text/javascript", body: source }),
+    );
+  }
   await page.goto("/");
   await page.waitForFunction(() => window.pocDone);
   const result = await page.evaluate(async () => {
-    const moduleURL = "/runtime-under-test.js";
+    const moduleURL = "/runtime-under-test/index.js";
     const { capacitorWorkers } = await import(moduleURL);
     const base = document.createElement("base");
     base.href = "/api/";

@@ -1,7 +1,7 @@
-import type { WorkerHandler } from "@rdlabo/capacitor-workers";
-import type { Command, Invocation, Reply } from "./protocol";
+import type { WorkerHandler } from "../index.js";
+import type { Command, Invocation, Reply } from "./protocol.js";
 
-export function serve(worker: WorkerHandler<{ UPSTREAM: string }>) {
+export function serve(worker: WorkerHandler<unknown>) {
   // Buffered upload, pull-driven response chunks: no transferable streams required.
   self.onmessage = async ({ data }: MessageEvent<Invocation>) => {
     const { port, url, method, headers, body, env } = data;
@@ -77,6 +77,10 @@ export function serve(worker: WorkerHandler<{ UPSTREAM: string }>) {
           );
         },
       });
+      if (!(response instanceof Response) || response.status === 0)
+        throw new TypeError("worker.fetch must return a non-error Response.");
+      if (response.bodyUsed || response.body?.locked)
+        throw new TypeError("worker.fetch returned an unusable response body.");
       reader = response.body?.getReader();
       bodyDone = !reader;
       send({
