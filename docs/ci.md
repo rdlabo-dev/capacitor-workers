@@ -7,8 +7,9 @@
 | library       | Strict typechecking including negative type tests, library build, unit/contract tests                                                                                                     |
 | compatibility | Independent demo install/typecheck, actual local workerd (explicit Hono/Express and shared profiles), Chromium/WebKit production tests, isolated runtime tests and Vite development tests |
 | package       | Fresh npm tarball consumer: exported types and direct/isolated/common-profile browser checks                                                                                              |
+| upstream      | Pinned official Hono source, clean-clone/version checks, local workerd baseline, Vite build and Chromium/WebKit Fetch-only checks in direct and Worker execution                          |
 
-`CI` aggregates all three jobs. It runs even if a dependency fails and accepts only `success` from every dependency; failed, cancelled and skipped jobs cannot produce a passing gate. Vitest rejects focused tests through `--allowOnly=false`; Playwright rejects them when `CI` is set. Playwright uses one worker on CI to limit resource contention. The demo remains an independent package, not an npm workspace.
+`CI` aggregates all four jobs. It runs even if a dependency fails and accepts only `success` from every dependency; failed, cancelled and skipped jobs cannot produce a passing gate. Vitest rejects focused tests through `--allowOnly=false`; Playwright rejects them when `CI` is set. Playwright uses one worker on CI to limit resource contention. The demo remains an independent package, not an npm workspace.
 
 The shared profile integrations require every declared case to pass. The generic `assertContract` intentionally permits explicit partial coverage; it alone is not proof of full profile compatibility. Removing cases or weakening assertions still requires human review.
 
@@ -30,3 +31,11 @@ Linux Chromium/WebKit and local workerd are automatic gates. They do not establi
 No simulator/emulator job is claimed here: the existing manual native procedure has not yet been reproduced on GitHub-hosted runners. The packed consumer intentionally installs into a fresh temporary project; it tests package usability separately from the lockfile-controlled library/demo installs.
 
 `.github/workflows/codeql.yml` is a separate analysis workflow. Its Swift job prepares the iOS demo and compiles the app with `xcodebuild` on a macOS runner to give CodeQL a real build, but it performs no simulator launch and no native acceptance — those remain local `test:native:package` runs on a developer machine.
+
+## Official upstream sample gate
+
+The `upstream` job checks `honojs/examples/jsx-ssr` at the full commit SHA in `demo/tests/upstream/hono-jsx-ssr/upstream.json`. Each job starts with a fresh sparse clone. Library and demo dependencies come from `npm ci` using their committed lockfiles; the installed Hono version must also match the sample metadata. Update the source pin and dependency versions explicitly in a PR. Upstream files are not vendored or modified.
+
+Six shared status/content expectations run against the original entry in local workerd and against the Vite-built public adapter in Chromium/WebKit, with both `direct` and `worker` execution (24 browser checks). The test actually asserts which execution mode was selected, so fallback cannot masquerade as isolated execution. This browser gate exercises Fetch Handler compatibility, not native document navigation, Safe Area layout, or iOS/Android lifecycle behavior. Those remain covered by the separate local native procedure.
+
+The job uploads the source-pin metadata, JSON test reports, and failure screenshots/traces for seven days, including on failure. Build/clone failures are available in the Actions step logs. A failure, cancellation, or skipped upstream job prevents the aggregate `CI` check from passing. No secrets, deployments, or simulator jobs are added. The independent native consumer still resolves its own dependencies through `npm install`; it is separate from this lockfile-controlled CI gate.

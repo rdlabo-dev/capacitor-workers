@@ -60,6 +60,26 @@ previous document registration. Document startup errors restore the original fet
 implementation; Fetch-only Worker startup errors continue to reject local requests
 until explicit disposal.
 
+## iOS Safe Area
+
+Worker document WebViews default to `automatic` content insets when
+`ios.contentInset` is omitted. An explicit value in `capacitor.config.ts` or
+`capacitor.config.json` takes precedence, using Capacitor's existing options:
+`automatic`, `scrollableAxes`, `never`, or `always`.
+
+For an application that handles Safe Area in CSS and needs edge-to-edge content:
+
+```ts
+const config: CapacitorConfig = {
+  // Other Capacitor settings...
+  ios: { contentInset: "never" },
+};
+```
+
+Run `npx cap sync ios` after changing this setting. This default applies to the
+native Worker document view; the ordinary Fetch-only WebView retains Capacitor's
+normal behavior. No new `capacitorWorkers` option is required.
+
 ## Build configuration
 
 The existing Vite or esbuild plugin automatically prepares document assets:

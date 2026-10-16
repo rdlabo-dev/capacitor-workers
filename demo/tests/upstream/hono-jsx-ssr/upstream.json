@@ -1,0 +1,30 @@
+{
+  "name": "honojs/examples jsx-ssr",
+  "repository": "https://github.com/honojs/examples",
+  "commit": "3b0b62875a0e1265763fea1c6388866d5697ef81",
+  "subdirectory": "jsx-ssr",
+  "entry": "src/index.tsx",
+  "compatibilityDate": "2024-04-01",
+  "license": "MIT",
+  "licenseNote": "The repository README states the MIT License; no LICENSE file exists at the pinned commit.",
+  "dependencies": {
+    "hono": "4.13.13"
+  },
+  "dependencyNote": "Upstream declares hono ^4.2.4 without a lockfile; 4.13.13 is the resolved version inside the declared range, matching this repository's tested version.",
+  "probeCases": [
+    "screen: top title",
+    "screen: header link",
+    "screen: five post links",
+    "screen: UTF-8 post title in list",
+    "screen: link opened fresh document",
+    "screen: detail title and body",
+    "screen: back returns to top",
+    "screen: UTF-8 detail",
+    "fetch: missing post status",
+    "fetch: missing post body",
+    "fetch: invalid route status",
+    "fetch: invalid route body",
+    "fetch: unknown path status",
+    "iframe: 404 body renders as document"
+  ]
+}

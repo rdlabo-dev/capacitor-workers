@@ -6,6 +6,19 @@ final class DocumentBridgeController: CAPBridgeViewController {
     weak var runtimeHost: WKWebView?
     var settings: [String: Any] = [:]
     var localURL: URL!
+    override func instanceDescriptor() -> InstanceDescriptor {
+        let descriptor = super.instanceDescriptor()
+        // Capacitor's resolved value cannot distinguish an explicit "never"
+        // from its default. Check presence in the same bundled configuration.
+        let config = Bundle.main.url(forResource: "capacitor.config", withExtension: "json")
+            .flatMap { try? Data(contentsOf: $0) }
+            .flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }
+        let ios = config?["ios"] as? [String: Any]
+        if ios?["contentInset"] == nil {
+            descriptor.contentInsetAdjustmentBehavior = .automatic
+        }
+        return descriptor
+    }
     override func viewDidLoad() {
         super.viewDidLoad()
         if let entry = settings["entry"] as? String, entry != "/", let url = URL(string: entry, relativeTo: localURL)?.absoluteURL {

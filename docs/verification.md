@@ -2,6 +2,51 @@
 
 This document records historical verification runs and subsequent implementation stages. Results and limitations belong to the stage where they are reported; they are not a single report for the current demo. See the [current demo guide](../demo/README.md) for its layout and commands.
 
+## Upstream application check: honojs/examples `jsx-ssr` — 2026-10-17
+
+On `test/upstream-hono-jsx-ssr` (base `722c31f`), the unmodified upstream example [honojs/examples `jsx-ssr`](https://github.com/honojs/examples) runs in Capacitor document rendering. The upstream repository is cloned read-only at pinned commit `3b0b62875a0e1265763fea1c6388866d5697ef81` (MIT; no LICENSE file exists upstream — the repository README states MIT) into the git-ignored `demo/artifacts/upstream/hono-jsx-ssr/clone` via a blob-filtered sparse checkout limited to `jsx-ssr/`. No upstream file is committed or edited. Setup, provenance and case lists live in `demo/tests/upstream/hono-jsx-ssr/`; preparation and native runs are `npm run test:upstream:{prepare,workerd}` and `test:upstream` from `demo/`.
+
+Dependency delta: upstream declares `hono ^4.2.4` and `wrangler ^3.53.0` without a lockfile. The workerd baseline and the consumer use `hono 4.13.13` (inside the declared range, matching this repository); workerd runs under Wrangler 4.151.0 with the upstream `compatibility_date` 2024-04-01. No newer Hono feature is required; the sample uses only `Hono`, `c.html`, `c.req.param`, `c.notFound`, `hono/jsx` and `hono/html`. Upstream tooling delta: its `dev`/`deploy` scripts and `wrangler.toml` deploy name are unused — no Cloudflare deployment was performed.
+
+| Check                  | Result             | Method                                                                                                                            |
+| ---------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Local workerd baseline | 6/6                | `npm run test:upstream:workerd`: HTTP status+body for `/`, `/post/1`, `/post/5` (UTF-8), `/post/99`, `/post/abc`, `/no-such-path` |
+| Android 16 emulator    | 14/14 + visual 404 | `npm run test:upstream -- hono-jsx-ssr android emulator-5554`, execution `worker`                                                 |
+| iOS 26.1 Simulator     | 14/14 + visual 404 | `npm run test:upstream -- hono-jsx-ssr ios 8036B54D-3A66-4DB2-875D-96495139F883`, execution `worker`                              |
+
+The consumer is an independent temp project (`demo/artifacts/upstream/hono-jsx-ssr-consumer.json`) installing the `npm pack` tarball; the plugin registered through ordinary `cap add`/`cap sync` on both platforms with no native overlay or controller/Activity changes. The workerd assertions verify HTTP status and bodies; the native probe verifies the rendered document for `screen:` cases, transport status/body for `fetch:` cases and one `iframe:` supplement. The runner requires the exact declared case set (`upstream.json` `probeCases`) — a partial report fails. After reporting, the probe performs a real top-level navigation to `/post/99`; that `text/plain` page runs no script, so it is verified only by screenshot (`*-404.png` shows the upstream "404 Not Found" body), recorded separately from the structured cases. Evidence: `demo/artifacts/upstream/hono-jsx-ssr/` contains `{android,ios}-hono-jsx-ssr.json` and matching `-report.png`, `-404.png`, and `-console.log` files (git-ignored).
+
+The upstream layout loads mini.css from cdnjs; these runs do not establish fully offline styling.
+
+No library defect was found for this sample: the same upstream entry matched the asserted page content, links, UTF-8 and 404 responses in workerd and in both native WebViews, including fresh-document link navigation and back history. This is a compatibility verification, not a bug fix. One visual finding: on iOS the unmodified upstream page rendered under the status bar. Investigation showed the document controller follows the standard Capacitor layout (`CAPBridgeViewController`, view bounds, `ios.contentInset` default `never` = edge-to-edge), so safe-area handling is the application's own responsibility, not a lost library behavior. A separate opt-in run used the public `ios.contentInset: "automatic"` — the document controller reads the same bundled config key as the host (`CAPInstanceDescriptor.swift` → `CAPBridgeViewController.swift:302`) — and the re-run confirmed the upstream text clears the status bar in the visually inspected screenshots. No library or upstream change was needed. The fixture was subsequently restored to the default (no `contentInset` setting); `automatic` is documented only as an application option. The initial default run and the opt-in run both passed 14/14. The saved iOS screenshots show the opt-in run, not the restored default. Regressions run: root typecheck, 132/132 unit tests, demo typecheck, 58/58 existing workerd tests, 6/6 upstream workerd checks re-run. Browser/Playwright and the 50-case packaged suite were not re-run; the change adds files under `demo/tests/upstream/`, two scripts and one Vitest config without touching library, demo sources, or existing fixtures.
+
+### iOS Safe Area default and application override
+
+After the initial upstream checks above, the native document controller was changed to use automatic content insets when `ios.contentInset` is omitted. Explicit values continue through Capacitor's standard configuration parser unchanged, including `never`. Fetch-only host behavior is unchanged. The preceding no-library-change statements describe the initial investigation, not this subsequent native change.
+
+A fresh packed consumer (`capacitor-workers-upstream-hono-jsx-ssr-dBpDPM`) compiled the updated Swift source and passed all 14 upstream cases on iOS 26.1 twice: with the setting omitted and with explicit `never`. Visual inspection of the final top-level 404 screenshots confirmed that the default clears the status bar and explicit `never` restores edge-to-edge placement. Reports, console logs and screenshots for each configuration are retained under `demo/artifacts/upstream/hono-jsx-ssr/safe-area-{default,never}/`. The consumer configuration and top-level evidence files were restored to the omitted-setting default after comparison. The installed simulator binary remains the explicit-`never` comparison build until the next native run.
+
+The library build and native Swift compilation passed. Android, the existing 50-case Hono/Express suite, and physical devices were not rerun for this iOS layout-only change. See [the public configuration guide](native-rendering-api.md#ios-safe-area).
+
+### Automated upstream CI gate
+
+The same branch adds a separate `upstream` job to the aggregate `CI` gate. Local reproduction of its commands passed after clean root/demo `npm ci`, a library build, and a fresh sparse clone: six shared workerd cases and 24 Vite-built Chromium/WebKit checks (six routes × two execution modes × two browsers). Both modes are explicitly asserted; the browser checks inspect Fetch Handler responses and do not claim native document navigation. Typechecking, `actionlint`, and diff checks pass. A temporary edit to the generated upstream clone was rejected by the source guard; restoring the original bytes restored acceptance.
+
+The job uses committed lockfiles and the source SHA/Hono version from `upstream.json`, and retains JSON reports plus failure screenshots/traces. A failed/skipped/cancelled upstream job cannot pass the aggregate gate. This workflow has been validated locally; GitHub-hosted Linux execution is pending publication. The native runs above precede these CI-only changes and were not repeated.
+
+### Next candidate memo: cloudflare/templates `to-do-list-kv-template`
+
+Investigated at commit `dfdf14099a81a08cfe1ffc78f8463605670ae513` (MIT, `LICENSE` at repo root). This is a **Remix 2.17.2** app (`@remix-run/cloudflare` `createRequestHandler`, React 18, Tailwind), unlike the self-contained Hono sample — substantially different reach:
+
+- Entry `server.ts` is a `{ fetch }` object that injects `request.cf`, `ctx.waitUntil`, **`ctx.passThroughOnException`** and global **`caches`** into the Remix load context. `passThroughOnException` is bound eagerly (`ctx.passThroughOnException.bind(ctx)`), but this library already supplies the method in direct and isolated execution; it throws only when called. Binding it alone is not a demonstrated incompatibility. Actual use of this method, `caches`, and `request.cf` still needs runtime verification.
+- KV binding `TO_DO_LIST` (`kv.get(key,"json")`, `kv.put` with `expirationTtl: 300`). Native runs would need an `env` binding such as `LocalStorageKV`, whose method-bearing API causes direct execution to be selected; workerd tests can use a real `kv_namespaces` binding.
+- `wrangler.jsonc` serves Workers **static assets** from `build/client`; in Capacitor these map to bundled `webDir` assets instead — an assets-manifest mapping decision, not a Worker change.
+- The entry imports generated `./build/server`; the consumer must run `remix vite:build` (upstream ships `package-lock.json`, so the toolchain pins exactly — heavier than the jsx-ssr prepare).
+- Flow to verify: `/` → `nanoid` redirect to `/{id}` (document-level 302), SSR list, POST `intent` create/toggle/delete actions, KV round trip, hydration scripts from the served assets. Remix hydration adds client-side routing beyond plain document navigation.
+- `nodejs_compat` flag is declared; whether the bundled server needs Node APIs must be confirmed against the built bundle.
+
+Suggested order next task: workerd baseline with a real KV namespace → reproduce `passThroughOnException`/`caches`/`cf` expectations → decide env/KV strategy (direct mode) → consumer with Remix build + asset manifest mapping.
+
 The initial PoC was implemented on branch `poc/workers-webview`. No cloud deployment or npm publication was performed.
 
 ## Results
@@ -170,9 +215,9 @@ After this separation and the HTML example update, the browser suite passed 8 te
 
 Verified on `test/packaged-native-lifecycle`, based on `4b88028b4eb49dbecc669dc9293586e745951895`, with uncommitted test/documentation changes. Production TypeScript and native sources are unchanged from that commit. The independent consumer installs the npm tarball with Capacitor 8.5.3; no native source overlays are applied.
 
-| Environment | Hono | Workers Express |
-| --- | --- | --- |
-| iOS 26.1 Simulator | 50/50 + all lifecycle stages | 50/50 + all lifecycle stages |
+| Environment                                | Hono                         | Workers Express              |
+| ------------------------------------------ | ---------------------------- | ---------------------------- |
+| iOS 26.1 Simulator                         | 50/50 + all lifecycle stages | 50/50 + all lifecycle stages |
 | Android 16 emulator, WebView 155.0.8059.43 | 50/50 + all lifecycle stages | 50/50 + all lifecycle stages |
 
 Each run verifies background/foreground, process termination/relaunch, updated Worker and static assets installed without deleting app data, and shutdown/reinitialization. iOS uses public `dispose()` and startup from the retained host; Android uses native stop and Service Worker bootstrap, followed by Fetch-only migration/registration cleanup/native asset fallback. The runner backgrounds the app before termination to allow WebView storage to persist; abrupt crashes and power loss are not covered. Physical devices and native execution in CI are not claimed.
@@ -180,3 +225,7 @@ Each run verifies background/foreground, process termination/relaunch, updated W
 The final four reports and console/build logs are local artifacts in `/private/tmp/claude/capacitor-workers-native-package-hiXuCf/artifacts/`, named `{ios,android}-{hono,express}.json` and corresponding logs. `demo/artifacts/native-package-consumer.json` points to the consumer; see [the test guide](../demo/tests/README.md#packaged-native-rendering-api) for reproduction commands. All four reports contain no failed acceptance cases and passing background/relaunch/update/reinit/complete stages.
 
 Review-time checks: root/demo typechecking, library build, all 132 unit tests, changed JavaScript syntax checks, and `git diff --check` pass. Native results above are from the final lifecycle test code, before this documentation-only record was added.
+
+### Upstream probe rerun isolation — Devin follow-up
+
+Each native invocation now generates a fresh run ID asset before building. The probe preserves session progress only for that ID, and the runner requires the same ID in the report. Chromium/WebKit regression cases seed completed and interrupted previous runs and verify a fresh run starts, while current-run navigation retains progress. The upstream browser suite passes 30/30, demo typechecking and script syntax checks pass. Two consecutive runs in the same packed iOS 26.1 consumer pass 14/14 each; Android was not repeated for this test-driver-only change.
