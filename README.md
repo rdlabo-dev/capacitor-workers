@@ -31,7 +31,7 @@ With the example base URL:
 | `/apiary`, `/outside.txt`           | Original fetch                                                   |
 | `https://other.example/api/hello`   | Original fetch                                                   |
 
-The path in `baseURL` selects a boundary; it is **not appended** to request paths. Relative paths resolve against the document URL first. Same-app URLs (including iOS `capacitor://localhost`) in the boundary are remapped to the base origin. Set a root base URL only if you intend to intercept every same-app fetch. A local 404/500 or exception never retries against the network. UI navigation, XHR, images and other WebViews are not intercepted.
+The path in `baseURL` selects a boundary; it is **not appended** to request paths. Relative paths resolve against `document.baseURI` (including `<base href>`) first, falling back to location when no document exists. Same-app URLs (including iOS `capacitor://localhost`) in the boundary are remapped to the base origin. Set a root base URL only if you intend to intercept every same-app fetch. A local 404/500 or exception never retries against the network. UI navigation, XHR, images and other WebViews are not intercepted.
 
 ## Workers Express
 
@@ -112,6 +112,8 @@ Android requires Java 21+. The demo bundles both Workers and runs 26 checks auto
 - `passThroughOnException`, WorkerEntrypoint/RPC, Service Worker format and Workers-specific Request fields are unsupported. Worker evaluation must not fetch its own local endpoints before installation.
 - CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. No native code was added beyond the generated Capacitor projects.
 - Client bundles are readable by users. Do not bundle server secrets or privileged backend logic. Unsupported operations do not automatically connect to cloud resources.
+
+Worker code currently shares the UI global scope: its own fetches inside the interception boundary re-enter the local Worker. Outbound I/O isolation is not implemented. See [the Hono/workerd investigation](docs/runtime-contract.md) for the runtime boundaries and the completed Dedicated Web Worker experiment. The prototype is isolated under `demo/experiments/`; run `npm run test:experiment` from `demo/`. It is not a public API; native builds use it only with the explicit experiment flag documented there. The experiment uses pull-driven MessagePort chunks to avoid the stream-transfer failure found on iOS 26.1. Six native cases pass on the tested iOS 26.1/27.0 simulators and Android 16 emulator; physical devices and framework integration into this isolated runtime remain unverified.
 
 ## Next phases
 

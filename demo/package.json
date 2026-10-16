@@ -11,7 +11,10 @@
     "ios": "cap run ios",
     "android": "cap run android",
     "test:browser": "playwright test",
-    "test:workers": "vitest run"
+    "test:workers": "vitest run",
+    "build:experiment": "vite build --config experiments/dedicated-worker/vite.config.ts",
+    "test:experiment": "npm run build:experiment && playwright test --config playwright.experiment.config.ts",
+    "preview:experiment": "vite preview --config experiments/dedicated-worker/vite.config.ts --host 127.0.0.1 --port 4181 --strictPort"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

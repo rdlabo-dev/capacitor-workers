@@ -53,7 +53,10 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
   const wrapped: typeof fetch = async (input, init) => {
     const isRequest = input instanceof Request;
     const address = isRequest ? input.url : String(input);
-    const url = new URL(address, globalThis.location?.href ?? base.href);
+    const url = new URL(
+      address,
+      globalThis.document?.baseURI ?? globalThis.location?.href ?? base.href,
+    );
     const matchesPath =
       !boundary ||
       url.pathname === boundary ||
@@ -65,6 +68,8 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
     if (!matchesPath || (url.origin !== base.origin && !isLocal)) {
       return original.call(globalThis, input, init);
     }
+    if (url.username || url.password)
+      throw new TypeError("Request URL must not contain credentials.");
     const target = new URL(base.origin);
     target.pathname = url.pathname;
     target.search = url.search;
@@ -102,7 +107,10 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
     let response: Response;
     try {
       response = await Promise.race([
-        Promise.resolve().then(() => options.worker.fetch(request, env, ctx)),
+        Promise.resolve().then(() => {
+          request.signal.throwIfAborted();
+          return options.worker.fetch(request, env, ctx);
+        }),
         cancelled,
       ]);
     } finally {
@@ -110,6 +118,14 @@ export function capacitorWorkers<Env = Record<string, unknown>>(
     }
     if (!(response instanceof Response))
       throw new TypeError("worker.fetch must return a Response.");
+    if (response.type === "error")
+      throw new TypeError("worker.fetch returned a network error response.");
+    if (response.bodyUsed || response.body?.locked)
+      throw new TypeError("worker.fetch returned an unusable response body.");
+    if (request.method === "HEAD" && response.body) {
+      void response.body.cancel().catch(() => {});
+      return new Response(null, response);
+    }
     return response;
   };
   globalThis.fetch = wrapped;
