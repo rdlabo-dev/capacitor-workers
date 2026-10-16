@@ -1,14 +1,14 @@
 import { verifyKVPersistence } from "./kv";
 import { FetchImplementation } from "@rdlabo/capacitor-workers/features/fetch";
 import { assertContract, runContract } from "@rdlabo/capacitor-workers/testing";
-import worker from "../workers/features/fetch";
+import worker from "../workers/compatibility/fetch";
 const isolated = () =>
-  new Worker(new URL("../validation/workers/fetch.ts", import.meta.url), {
+  new Worker(new URL("./entries/fetch.ts", import.meta.url), {
     type: "module",
   });
 import { fetchContract } from "@rdlabo/capacitor-workers/testing/fetch";
 import { kvContract } from "@rdlabo/capacitor-workers/testing/kv";
-import { wasmContract } from "./contracts";
+import { wasmContract } from "./contracts/wasm";
 import { PersistentText, WasmValidation } from "./implementations";
 export async function runFeatures() {
   await verifyKVPersistence();

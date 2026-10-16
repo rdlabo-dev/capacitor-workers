@@ -2,8 +2,8 @@ import kvWorker from "./kv";
 import { runContract } from "@rdlabo/capacitor-workers/testing";
 import { kvContract } from "@rdlabo/capacitor-workers/testing/kv";
 import type { KVNamespace } from "@rdlabo/capacitor-workers/features/kv";
-import { wasmContract } from "../../features/contracts";
-import { WorkersText, WasmValidation } from "../../features/implementations";
+import { wasmContract } from "../../validation/contracts/wasm";
+import { WorkersText, WasmValidation } from "../../validation/implementations";
 export default {
   async fetch(_request: Request, env: { TEXT: KVNamespace }) {
     if (new URL(_request.url).pathname === "/expiration") {

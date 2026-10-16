@@ -8,7 +8,7 @@ import {
   kvFeature,
   type KVNamespace,
 } from "@rdlabo/capacitor-workers/features/kv";
-import { wasmFeature } from "./contracts";
+import { wasmFeature } from "./contracts/wasm";
 
 /** Test-only cleanup. Production feature disposal never clears application data. */
 async function clear(kv: KVNamespace) {

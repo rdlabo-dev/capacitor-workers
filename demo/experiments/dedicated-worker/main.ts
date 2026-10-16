@@ -1,21 +1,21 @@
-import { kvRequest } from "../../src/features/kv";
-import { runFeatures } from "../../src/features/run";
+import { kvRequest } from "../../src/validation/kv";
+import { runFeatures } from "../../src/validation/run-features";
 import { Capacitor } from "@capacitor/core";
 import { capacitorWorkers } from "@rdlabo/capacitor-workers";
 import { runFrameworkContract } from "./frameworks";
 
 const isolation = () =>
   new Worker(
-    new URL("../../src/validation/workers/isolation.ts", import.meta.url),
+    new URL("../../src/validation/entries/isolation.ts", import.meta.url),
     { type: "module" },
   );
 const hono = () =>
-  new Worker(new URL("../../src/validation/workers/hono.ts", import.meta.url), {
+  new Worker(new URL("../../src/validation/entries/hono.ts", import.meta.url), {
     type: "module",
   });
 const express = () =>
   new Worker(
-    new URL("../../src/validation/workers/express.ts", import.meta.url),
+    new URL("../../src/validation/entries/express.ts", import.meta.url),
     { type: "module" },
   );
 

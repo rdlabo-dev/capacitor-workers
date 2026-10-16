@@ -221,7 +221,11 @@ The demo layout separates application sources from tooling:
 
 ```text
 demo/
-  src/              Application entry, display, Workers and validation page
+  src/
+    main.ts         Runtime initialization
+    ui/             Demo screen and API calls
+    workers/        Worker applications (Hono, Express, compatibility fixtures)
+    validation/     Test runners, contracts, implementations and Worker entries
   public/           Static assets
   tests/            Automated tests and Playwright/Vitest configurations
   experiments/      Dedicated Worker experiment
@@ -230,7 +234,7 @@ demo/
   ios/, android/    Native projects
 ```
 
-`demo/src/main.ts` only initializes the runtime and waits for it to be ready. `demo/src/display.ts` then makes a normal fetch call and displays the result. The separate `demo/src/validation/` page runs compatibility checks; open it using the link on the demo screen.
+`demo/src/main.ts` only initializes the runtime and waits for it to be ready. `demo/src/ui/display.ts` then makes a normal fetch call and displays the result. The separate `demo/src/validation/` page runs compatibility checks; open it using the link on the demo screen. Its shared HTTP checks live in `demo/src/validation/contracts/http.ts` and are reused by the build-tool and Worker experiments.
 
 Worker fixtures are organized as `demo/src/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; additional scenarios can be added alongside them.
 
