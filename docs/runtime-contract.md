@@ -12,12 +12,12 @@ We retain the small dispatch boundary, without adding a Hono dependency. We inte
 
 Source revision: 40838ae3f72038c15ef9ed381f9d51880476ebb0.
 
-| Responsibility | Reference | WebView implementation / gap |
-| --- | --- | --- |
-| Worker isolate and modules | [worker.c++](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/io/worker.c++) | Imported Worker shares globals with the UI; no isolate or module loader. |
-| Request I/O ownership, outbound channels, background lifetime | [io-context.h](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/io/io-context.h) | Fresh context plus tracked promises; no per-request I/O isolation or resource limits. |
-| waitUntil and exception passthrough | [global-scope.c++](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/api/global-scope.c++) | Promise tracking only; passthrough explicitly unsupported. |
-| Fetch, redirects, body handling | [http.c++](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/api/http.c++) | Browser Request/Response plus URL mapping. Redirect following, cookie policies, and aborting response streams after headers remain gaps. |
+| Responsibility                                                | Reference                                                                                                                                | WebView implementation / gap                                                                                                             |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker isolate and modules                                    | [worker.c++](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/io/worker.c++)              | Imported Worker shares globals with the UI; no isolate or module loader.                                                                 |
+| Request I/O ownership, outbound channels, background lifetime | [io-context.h](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/io/io-context.h)          | Fresh context plus tracked promises; no per-request I/O isolation or resource limits.                                                    |
+| waitUntil and exception passthrough                           | [global-scope.c++](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/api/global-scope.c++) | Promise tracking only; passthrough explicitly unsupported.                                                                               |
+| Fetch, redirects, body handling                               | [http.c++](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/src/workerd/api/http.c++)                 | Browser Request/Response plus URL mapping. Redirect following, cookie policies, and aborting response streams after headers remain gaps. |
 
 workerd's [README](https://github.com/cloudflare/workerd/blob/40838ae3f72038c15ef9ed381f9d51880476ebb0/README.md) describes a native server runtime and lists Linux, macOS and Windows as tested platforms, not iOS/Android. “JavaScript/Wasm runtime” means it executes these programs, not that it ships a browser-compatible Wasm runtime. Mobile embedding would need a separate native port/build/bridge investigation. We did not build such a port or establish that it is impossible.
 
@@ -37,26 +37,26 @@ Temporarily restoring global fetch while a handler runs would break concurrent U
 
 ## Dedicated Web Worker experiment
 
-`demo/experiments/dedicated-worker/` imports the unchanged `demo/workers/runtime/isolation.ts` module in a separate global scope. The UI installs the existing adapter with a small MessageChannel bridge. Requests carry URL/method/headers and a buffered body; responses carry status/statusText/headers and pull-driven Uint8Array chunks over the port. The receiving ReadableStream requests one chunk per pull, without transferring a stream or buffering the whole response. Abort messages reach an AbortController inside the worker. Background completion is reported separately from the response and participates in runtime.drain(). Ports and abort listeners are released after body termination and background completion. Worker startup failure is retained and rejects current/subsequent requests. Abort after headers errors the receiving body; source cancellation failures reject reader.cancel().
+`demo/tests/fixtures/apps/runtime/` imports the unchanged `demo/tests/fixtures/workers/runtime/isolation.ts` module in a separate global scope. The UI installs the existing adapter with a small MessageChannel bridge. Requests carry URL/method/headers and a buffered body; responses carry status/statusText/headers and pull-driven Uint8Array chunks over the port. The receiving ReadableStream requests one chunk per pull, without transferring a stream or buffering the whole response. Abort messages reach an AbortController inside the worker. Background completion is reported separately from the response and participates in runtime.drain(). Ports and abort listeners are released after body termination and background completion. Worker startup failure is retained and rejects current/subsequent requests. Abort after headers errors the receiving body; source cancellation failures reject reader.cancel().
 
-The experimental page/build is separate from the normal demo. Capacitor uses it only when `CAPACITOR_WORKERS_EXPERIMENT=1` is explicitly set during sync. No extra dependency, native code or public library API was added.
+The experimental page/build is separate from the normal demo. To run it in Capacitor, the test preparation command builds it and copies its generated assets into `demo/dist/`; the normal Capacitor configuration stays unchanged. No extra dependency, native code or public library API was added.
 
 Run from `demo/` after building the root library:
 
 ```sh
 npm run test:workers
-npm run test:experiment
+npm run test:runtime
 ```
 
-| Observation | workerd | Chromium / WebKit dedicated worker |
-| --- | --- | --- |
-| Outbound fetch after await, alongside concurrent UI requests | Passed | Passed; upstream URL is inside the UI interception boundary, yet does not recurse |
-| Logical request URL and no document global | Passed over local HTTP | Passed |
-| waitUntil response independence and completion | Passed, with upstream response held until foreground completion | Passed; drain waits for released background requests |
-| Incremental response body and client cancellation | Passed with identity encoding | Passed using pull-driven chunks; source cancel callback observed |
-| Abort while handler is pending | Not separately measured through HTTP | Passed; abort reaches source controller |
-| Uncaught handler error | Not compared at HTTP boundary | Error name/message transported and caller rejects |
-| Missing route | Local 404 | Local 404 |
+| Observation                                                  | workerd                                                         | Chromium / WebKit dedicated worker                                                |
+| ------------------------------------------------------------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Outbound fetch after await, alongside concurrent UI requests | Passed                                                          | Passed; upstream URL is inside the UI interception boundary, yet does not recurse |
+| Logical request URL and no document global                   | Passed over local HTTP                                          | Passed                                                                            |
+| waitUntil response independence and completion               | Passed, with upstream response held until foreground completion | Passed; drain waits for released background requests                              |
+| Incremental response body and client cancellation            | Passed with identity encoding                                   | Passed using pull-driven chunks; source cancel callback observed                  |
+| Abort while handler is pending                               | Not separately measured through HTTP                            | Passed; abort reaches source controller                                           |
+| Uncaught handler error                                       | Not compared at HTTP boundary                                   | Error name/message transported and caller rejects                                 |
+| Missing route                                                | Local 404                                                       | Local 404                                                                         |
 
 Browser upstream responses are controlled with Playwright context routing; requests still originate from the Dedicated Worker fetch. workerd uses a temporary Node HTTP upstream only in the test process. Neither is a live Cloudflare deployment.
 
@@ -74,11 +74,11 @@ Root Vitest checks runtime behavior. Demo Vitest checks the real Hono/Workers Ex
 
 Installed and launched the bundled experimental app (no server.url) on 2026-10-16:
 
-| Environment | Result | Observation |
-| --- | --- | --- |
-| iOS 26.1 Simulator, iPhone 17 Pro | 6/6 | statusText/cleanup, outbound/concurrent calls/background completion, stream cancellation, pending abort, abort after headers, error/404 passed. |
-| iOS 27.0 Simulator, iPhone 18 Pro | 6/6 | The same six cases passed. |
-| Android 16 emulator, WebView 134.0.6998.135 | 6/6 | The same six cases passed. |
+| Environment                                 | Result | Observation                                                                                                                                     |
+| ------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| iOS 26.1 Simulator, iPhone 17 Pro           | 6/6    | statusText/cleanup, outbound/concurrent calls/background completion, stream cancellation, pending abort, abort after headers, error/404 passed. |
+| iOS 27.0 Simulator, iPhone 18 Pro           | 6/6    | The same six cases passed.                                                                                                                      |
+| Android 16 emulator, WebView 134.0.6998.135 | 6/6    | The same six cases passed.                                                                                                                      |
 
 The iOS versions above come from simctl runtime metadata (`SIMULATOR_RUNTIME_VERSION`), not the WebView user-agent string, which reported iPhone OS 18_7 in both tested simulators. These are observations for these environments, not a claim about the first iOS release supporting the feature. No physical device was tested.
 
@@ -89,14 +89,13 @@ The initial transfer-based run produced 0/5 on iOS 26.1 and 5/5 on iOS 27.0/Andr
 Reproduce from `demo/`:
 
 ```sh
-npm run build:experiment
-CAPACITOR_WORKERS_EXPERIMENT=1 npx cap sync
+npm run test:native:prepare -- runtime
+npm run sync
 # Build/run the generated ios/ or android/ project with the native SDK.
 # The app displays the report and logs NATIVE_EXPERIMENT with JSON results.
 ```
 
-Restore ordinary demo assets with `npm run build && npx cap sync` (without the environment variable). The checked-in native config defaults to the ordinary demo. Local ignored evidence: `demo/artifacts/native-experiment-{ios26,ios27,android}.{log,json,png}`. Screenshots were visually inspected and match the result logs.
-
+Restore ordinary demo assets with `npm run build && npm run sync`. The checked-in native config always uses `dist/`. Local ignored evidence: `demo/artifacts/native-experiment-{ios26,ios27,android}.{log,json,png}`. Screenshots were visually inspected and match the result logs.
 
 ## Hono / Workers Express follow-up
 
@@ -106,26 +105,25 @@ The Vite experiment config installs the existing compatibility plugin at the top
 
 The browser/native framework contract contains eleven named checks per framework: GET/query, JSON POST/status, route params, middleware, 404, error middleware, empty 204, HEAD, concurrency, Request input, and logical URL/framework identity. The shared contract now consumes the middleware/404 response bodies so completion can release transport resources. Tests also wait for background completion, require no background errors and check active calls return to zero before disposal.
 
-| Environment | Follow-up result |
-| --- | --- |
-| Local workerd | 23 tests passed: 10 each for Hono/Express, plus 3 runtime tests |
-| Chromium + WebKit | 22 Playwright tests passed: 18 transport tests and 4 framework suites (11 checks per suite) |
-| iOS 26.1 Simulator, iPhone 17 Pro | 28/28: Hono 11, Express 11, transport 6 |
-| Android 16 emulator, WebView 134.0.6998.135 | 28/28: the same checks |
-| Ordinary demo, Chromium + WebKit | 4 regression tests passed |
+| Environment                                 | Follow-up result                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Local workerd                               | 23 tests passed: 10 each for Hono/Express, plus 3 runtime tests                             |
+| Chromium + WebKit                           | 22 Playwright tests passed: 18 transport tests and 4 framework suites (11 checks per suite) |
+| iOS 26.1 Simulator, iPhone 17 Pro           | 28/28: Hono 11, Express 11, transport 6                                                     |
+| Android 16 emulator, WebView 134.0.6998.135 | 28/28: the same checks                                                                      |
+| Ordinary demo, Chromium + WebKit            | 4 regression tests passed                                                                   |
 
 Browser framework suites load their Dedicated Worker, disable networking, then execute all eleven checks and assert no API network request occurred. Native runs use bundled assets and no API server, with the same transport fixture limits described above. The workerd harness compares the common nine API cases plus preserved URL path/query; Request-object input is a browser/native adapter check. The harness chooses its local connection origin, whereas browser/native requests must retain the configured logical origin.
 
 iOS 26.0, physical devices and framework suites on iOS 27 were not tested in this follow-up. The earlier iOS 27 transport result remains historical evidence, not a framework result. Runtime-level outbound fetch/waitUntil behavior is covered by the existing neutral fixture; no new framework-specific outbound routes were added.
 
-Run `npm run test:workers` and `npm run test:experiment` in demo. The native reproduction commands above now run all 28 checks. Follow-up logs, JSON and visually inspected screenshots are saved locally under `demo/artifacts/native-framework-{ios26,android}.{log,json,png}`. Ordinary demo assets/config were restored after validation.
+Run `npm run test:workers` and `npm run test:runtime` in demo. The native reproduction commands above now run all 28 checks. Follow-up logs, JSON and visually inspected screenshots are saved locally under `demo/artifacts/native-framework-{ios26,android}.{log,json,png}`. Ordinary demo assets/config were restored after validation.
 
 **Next boundary:** this establishes that the tested unchanged framework handlers execute through the shared isolated transport. Promoting that transport to the library and designing minimal build/setup configuration remain separate work. Native binding bridges, upload streaming and broader Workers compatibility remain out of scope.
 
-
 ## Library integration
 
-Based on main 1cd7695, the shared transport now lives in `src/isolated/`. The demo imports its existing Worker files using `?capacitor-worker` and calls the public `capacitorWorkers({ worker, baseURL })` API. The six demo bridge/protocol/transport/entry files were removed. No native code or dependencies were added, and the original framework handlers are unchanged.
+Historical note: the query import described here has since been removed; current setup uses build configuration or standard Worker construction. Based on main 1cd7695, the shared transport now lives in `src/isolated/`. The demo imports its existing Worker files using `?capacitor-worker` and calls the public `capacitorWorkers({ worker, baseURL })` API. The six demo bridge/protocol/transport/entry files were removed. No native code or dependencies were added, and the original framework handlers are unchanged.
 
 The Vite plugin resolves each query import into a factory and generates its worker-side entry in memory. Registered generated IDs only are transformed; ordinary files sharing the internal suffix are left untouched, and an existing file at a generated path produces an explicit build error. The plugin composes its worker build plugins with any supplied worker plugins. This uses Vite's [worker imports](https://vite.dev/guide/features.html#web-workers) and [worker plugin configuration](https://vite.dev/config/worker-options); Vite 7.3.7 is the version exercised here. No extra wrapper file, manual worker plugin setup, runtime module path string or native plugin is required.
 
@@ -137,17 +135,17 @@ The library rejects unusable or status-0 Responses before transfer and catches r
 
 Internal lifecycle counts are not a public API. Real MessageChannel unit tests cover body/background completion, repeated-call release, crash/disposal paths, invalid Responses, malformed response metadata and non-cloneable env. The browser/native suites now use the public API and no longer inspect the old demo active-call counter.
 
-| Check | Result |
-| --- | --- |
-| Library typecheck/build and unit tests | Passed; 30 tests |
-| Demo typecheck | Passed |
-| Packed npm consumer | Direct 26/26, isolated 22/22; public query-import types checked, no source aliases or copied transport |
-| Chromium/WebKit production isolated suites | 22 tests passed |
-| Chromium/WebKit Vite dev framework suites | 4 tests passed |
-| Ordinary demo browser regression | 4 tests passed |
-| Local workerd | 23 tests passed |
-| iOS 26.1 Simulator | 28/28 through the library: Hono 11, Express 11, transport 6 |
-| Android 16 emulator / WebView 134 | 28/28 through the library |
+| Check                                      | Result                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Library typecheck/build and unit tests     | Passed; 30 tests                                                                                       |
+| Demo typecheck                             | Passed                                                                                                 |
+| Packed npm consumer                        | Direct 26/26, isolated 22/22; public query-import types checked, no source aliases or copied transport |
+| Chromium/WebKit production isolated suites | 22 tests passed                                                                                        |
+| Chromium/WebKit Vite dev framework suites  | 4 tests passed                                                                                         |
+| Ordinary demo browser regression           | 4 tests passed                                                                                         |
+| Local workerd                              | 23 tests passed                                                                                        |
+| iOS 26.1 Simulator                         | 28/28 through the library: Hono 11, Express 11, transport 6                                            |
+| Android 16 emulator / WebView 134          | 28/28 through the library                                                                              |
 
 Native evidence is in local ignored `demo/artifacts/native-library-{ios26,android}.{log,json,png}`; screenshots and JSON were inspected. Normal demo assets/config were restored. Native outbound testing still uses bundled fixtures, not external network/CORS; physical devices, iOS 26.0 and a new iOS 27 run were not tested. Public-package integration is established for these cases, not complete Workers compatibility. No npm publication or cloud deployment was performed.
 

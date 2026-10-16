@@ -1,6 +1,7 @@
 {
   "name": "@rdlabo/capacitor-workers",
   "version": "0.0.0-poc.1",
+  "license": "MIT",
   "description": "Run Workers fetch handlers inside Capacitor WebViews",
   "type": "module",
   "files": [
@@ -14,10 +15,6 @@
     "./vite": {
       "types": "./dist/vite.d.ts",
       "import": "./dist/vite.js"
-    },
-    "./client": {
-      "types": "./dist/client.d.ts",
-      "import": "./dist/client.js"
     },
     "./features": {
       "types": "./dist/features/index.d.ts",
@@ -50,6 +47,9 @@
     "./worker": {
       "types": "./dist/worker.d.ts",
       "import": "./dist/worker.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/cloudflare.d.ts"
     }
   },
   "scripts": {

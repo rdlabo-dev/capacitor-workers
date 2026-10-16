@@ -33,7 +33,7 @@ beforeAll(async () => {
       {
         config: {
           name: "runtime-isolation",
-          main: "workers/runtime/isolation.ts",
+          main: "tests/fixtures/workers/runtime/isolation.ts",
           compatibility_date: "2026-10-01",
           vars: { UPSTREAM: `http://127.0.0.1:${address.port}` },
         },

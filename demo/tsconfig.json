@@ -7,7 +7,7 @@
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "types": ["node"]
+    "types": ["node", "@rdlabo/capacitor-workers/cloudflare"]
   },
-  "include": ["*.ts", "workers", "tests", "experiments", "build-tools"]
+  "include": ["*.ts", "src", "tests"]
 }

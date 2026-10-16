@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+test.use({ baseURL: "http://127.0.0.1:4188" });
+
 test("Hono and real Express run entirely in the browser", async ({
   page,
   context,

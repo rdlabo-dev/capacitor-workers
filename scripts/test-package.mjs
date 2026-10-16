@@ -31,24 +31,17 @@ execFileSync(
 );
 // The consumer test needs web sources only, not native projects/build outputs.
 for (const entry of [
-  "build-tools",
-  "scripts/build-tools.mjs",
-  "workers",
-  "features",
-  "public",
-  "main.ts",
-  "index.html",
-  "contract.ts",
-  "cloudflare.d.ts",
-  "client.d.ts",
-  "experiments/dedicated-worker",
+  "tests/scripts/build-tools.mjs",
+  "src",
+  "tests/validation",
+  "tests/fixtures",
 ]) {
   await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
 }
 await writeFile(
   join(temp, "vite.config.mjs"),
   `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo',plugins:[capacitorWorkersPlugin()],build:{outDir:'../build',target:'es2022'}};`,
+export default {root:'demo/tests/validation',plugins:[capacitorWorkersPlugin()],build:{outDir:'../../../build',target:'es2022'}};`,
 );
 execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
   cwd: temp,
@@ -56,8 +49,13 @@ execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
 });
 await writeFile(
   join(temp, "consumer.ts"),
-  `/// <reference types="@rdlabo/capacitor-workers/client" />
-import worker from "./demo/workers/hono/standard?capacitor-worker";
+  `/// <reference types="@rdlabo/capacitor-workers/cloudflare" />
+import worker from "./demo/src/workers/hono/standard";
+import { httpServerHandler } from "cloudflare:node";
+const handler = httpServerHandler({ port: 3000 });
+const response: Promise<Response> = handler.fetch(new Request("https://worker.invalid/api"));
+// @ts-expect-error Logical ports must be numeric.
+httpServerHandler({ port: "3000" });
 import { capacitorWorkers, FetchRuntime, type WorkerContext } from "@rdlabo/capacitor-workers";
 class ExampleRuntime extends FetchRuntime<{ label: string }> {
   protected dispatch(request: Request, env: { label: string }, ctx: WorkerContext) {
@@ -109,7 +107,7 @@ const fetcher: typeof fetch = example.fetch;
 example.dispose();
 const runtime = capacitorWorkers({worker, baseURL:"https://worker.invalid/api"});
 const ready: Promise<void> = runtime.ready;
-// @ts-expect-error Worker factories must not degrade to any.
+// @ts-expect-error Worker handlers must not degrade to any.
 const invalid: number = worker;
 runtime.dispose();
 `,
@@ -157,7 +155,7 @@ try {
   }
   browser = await chromium.launch();
   const page = await browser.newPage();
-  await page.goto("http://127.0.0.1:4189");
+  await page.goto("http://127.0.0.1:4189/");
   await page.waitForFunction(() => window.pocDone);
   const results = await page.evaluate(() => window.pocResults);
   if (results?.length !== 26 || results.some((r) => !r.ok))
@@ -166,7 +164,7 @@ try {
   await writeFile(
     join(temp, "vite.config.mjs"),
     `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
-export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorkersPlugin({worker:'../../workers/runtime/isolation.ts'})],build:{outDir:'../../../build',emptyOutDir:true,target:'es2022'}};`,
+export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorkersPlugin({worker:'../../workers/runtime/isolation.ts'})],build:{outDir:'../../../../../build',emptyOutDir:true,target:'es2022'}};`,
   );
   execFileSync(process.execPath, ["node_modules/vite/bin/vite.js", "build"], {
     cwd: temp,
@@ -230,7 +228,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     )
   )
     throw new Error(JSON.stringify(features));
-  execFileSync(process.execPath, ["demo/scripts/build-tools.mjs"], {
+  execFileSync(process.execPath, ["demo/tests/scripts/build-tools.mjs"], {
     cwd: temp,
     stdio: "pipe",
   });
@@ -270,7 +268,7 @@ export default {root:'demo/experiments/dedicated-worker',plugins:[capacitorWorke
     [
       "node_modules/vite/bin/vite.js",
       "--config",
-      "demo/build-tools/vite.config.ts",
+      "demo/tests/fixtures/apps/build-tools/vite.config.ts",
       "--host",
       "127.0.0.1",
       "--port",

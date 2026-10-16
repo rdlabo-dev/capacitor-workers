@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { test, expect } from "@playwright/test";
 
+test.use({ baseURL: "http://127.0.0.1:4188" });
+
 test("Fetch adapter preserves browser Request semantics", async ({ page }) => {
   for (const file of [
     "index.js",

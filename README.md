@@ -126,7 +126,7 @@ Only one installation is supported; `runtime.dispose()` restores fetch and termi
 
 ### Explicit Worker sources
 
-Existing direct-handler imports and `?capacitor-worker` factory imports remain supported for explicit low-level use. `prefer` requires the plugin configuration or an explicit source with both `createWorker` and `loadDirect`; it cannot manufacture a second candidate from a handler or factory alone.
+Explicit direct-handler imports and standard `new Worker(new URL(...), { type: "module" })` factories are supported. `prefer` requires the plugin configuration or an explicit source with both `createWorker` and `loadDirect`; it cannot manufacture a second candidate from a handler or factory alone.
 
 Direct imports remain supported: `import worker from "./worker"` supplies an object with `fetch` and runs in the UI global scope. Hono needs no build plugin in that mode; Workers Express still needs the compatibility plugin. Worker subrequests stay outside UI interception only when `runtime.execution` is `"worker"`; direct fallback shares the UI global environment.
 
@@ -184,6 +184,16 @@ export default httpServerHandler({ port: 3000 });
 
 Use the plugin shown above only in the Capacitor/browser build, never the Cloudflare build. It supplies limited Node HTTP compatibility and browser polyfills. `listen(3000)` registers an in-memory handler, not a listening TCP port. The plugin supports both Hono and Workers Express; framework code stays unchanged.
 
+### TypeScript types
+
+The package provides the `cloudflare:node` type for its supported `httpServerHandler` adapter. For a browser build without existing Workers type declarations, add it to `compilerOptions.types` in `tsconfig.json`:
+
+```json
+{ "compilerOptions": { "types": ["@rdlabo/capacitor-workers/cloudflare"] } }
+```
+
+Keep any other types your project already uses. This is a type-only entry; do not import it at runtime. Projects with generated Workers types should keep those declarations instead. No application-owned `cloudflare.d.ts` or `client.d.ts` is needed.
+
 ## Local KV
 
 Use `LocalStorageKV` from `@rdlabo/capacitor-workers/features/kv` to supply a persistent KV binding through `env` in direct execution, including read modes, bulk reads, metadata, expiration and paginated listing. See [setup, supported operations and limits](docs/kv.md). The named contract is tested against local workerd; cloud replication and isolated binding RPC remain outside its scope.
@@ -205,9 +215,30 @@ npm run test:package
 
 ### Demo and integration tests
 
-The validation app is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
+Follow the [demo setup guide](demo/README.md) to see which files to configure and how to run the app.
 
-Worker fixtures are organized as `demo/workers/<framework>/<scenario>.ts`. The initial shared API cases live in `hono/standard.ts` and `express/standard.ts`; additional scenarios can be added alongside them.
+The demo is an independent npm project under `demo/`, with its own package manifest and lockfile. Capacitor, Hono, Express, native projects and integration tests belong to that project. It consumes the built library through `file:..`; it is not an npm workspace.
+
+The demo layout separates application sources from tooling:
+
+```text
+demo/
+  src/
+    main.ts         Runtime initialization and Worker HTML display
+    workers/        Hono and Express application code
+  tests/
+    validation/     Validation page, runners, contracts and Worker entries
+    fixtures/
+      apps/         Runtime and build-tool test apps
+      workers/      Test-only Worker handlers
+    scripts/        Node.js helpers that build test apps
+    ...             Automated tests and Playwright/Vitest configurations
+  ios/, android/    Native projects
+```
+
+`demo/src/main.ts` initializes the runtime and displays the HTML returned by the Worker’s `/` route. Hono is selected by default; the commented Express entry in `demo/vite.config.ts` shows how to switch. Browser tests build and render the same demo with each Worker. The separate `demo/tests/validation/` page runs compatibility checks; it has its own build and is served separately by the browser tests. Application sources never import validation code. Its shared HTTP checks live in `demo/tests/validation/contracts/http.ts` and are reused by the build-tool and runtime tests.
+
+Application Workers are organized as `demo/src/workers/<framework>/<scenario>.ts`. The Hono and Express examples each render HTML at `/` and expose `/api/hello` as JSON. The initial HTML is inserted into the existing page; navigation, returned scripts, and form handling are not provided by this example. Broader routing and error-handling cases live in `demo/tests/fixtures/workers/{hono,express}/standard.ts`; runtime and binding fixtures also live under `demo/tests/fixtures/workers/`.
 
 ```sh
 cd demo
@@ -217,18 +248,18 @@ npm run build
 npx playwright install chromium webkit
 npm run test:browser
 npm run test:workers
-npm run test:experiment
-npm run test:experiment:dev
+npm run test:runtime
+npm run test:runtime:dev
 npm run test:build-tools
 ```
 
 `npm run test:build-tools` in `demo` checks Vite and esbuild with Hono and Express, plus unbundled browser ESM, in both execution modes on Chromium and WebKit.
 
-`test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have ten individually reported tests covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks package types plus both direct and isolated framework execution without handwritten aliases/polyfills.
+`test:workers` runs Vitest tests in `demo/tests/workers/` against **local workerd**, using Wrangler's `createTestHarness`. Hono and Express each have two checks for the demo Worker and ten contract-fixture checks covering the API behavior checked in the WebView. It is not a live Cloudflare deployment. To filter tests, use e.g. `npm run test:workers -- -t hono`. `test:package` installs an actual npm tarball into a fresh temporary consumer and checks package types plus both direct and isolated framework execution without handwritten aliases/polyfills.
 
 ### Local Cloudflare development
 
-Cloudflare CLI configuration lives in `demo/cloudflare.config.ts`. From `demo/`, run `npx cf build --mode hono` or `npx cf build --mode express` to build the corresponding Worker; use `npx cf dev --mode hono` (or `express`) for local development. The installed `cf` version is currently beta. Wrangler remains a development dependency for the CLI's bundler and the test harness; the tests use the same Worker settings from `cloudflare.config.ts`.
+Cloudflare CLI configuration lives in `demo/cloudflare.config.ts`. From `demo/`, run `npx cf build --mode hono` or `npx cf build --mode express` to build the corresponding Worker; use `npx cf dev --mode hono` (or `express`) for local development. The installed `cf` version is currently beta. Wrangler remains a development dependency for the CLI's bundler and the test harness; tests use the same compatibility settings, checking the example Workers as well as separate contract fixtures.
 
 ### Native demo
 
@@ -240,7 +271,7 @@ npm run ios
 npm run android
 ```
 
-Android requires Java 21+. The demo bundles both Workers and runs 26 checks automatically. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
+Android requires Java 21+. The demo opens the minimal Hono example. For the separate 26-check validation app, run `npm run test:native:prepare -- validation`, then the same sync/ios/android commands. This replaces generated `dist/` assets; run `npm run build` and `npm run sync` to restore the example app. No `server.url` or development server is configured in Capacitor. Results appear in the UI and as `POC_RESULT` in the native console. Browser tests additionally re-run 18 API checks with networking disabled.
 
 ### Continuous integration
 
@@ -273,7 +304,7 @@ The isolated transport buffers uploads and streams responses as pull-driven Mess
 
 ### Validation history
 
-See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/experiments/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native build remains selected using the documented experiment flag. No npm release has been published by this change.
+See [the runtime investigation and validation history](docs/runtime-contract.md). The validation app under `demo/tests/fixtures/apps/runtime/` now uses the library's public factory path; the transport is no longer copied into the demo. Its native assets are prepared using the documented test command. No npm release has been published by this change.
 
 ## Extending the library
 
@@ -291,4 +322,8 @@ Fetch implementations extend `FetchRuntime` and share one contract suite. See [t
 2. Add binding adapters: D1 → Capacitor SQLite, KV → local storage provider, R2 → Capacitor Filesystem; compare API behaviour against Workers. Local data is independent of cloud data; sync is separate.
 3. Expand setup automation, compatibility and browser/Electron/Tauri execution. Keep Worker entry configuration and application initialization simple.
 
-The combined Hono + Express demo currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See [verification results](docs/verification.md) for measured results and limitations.
+The Hono + Express compatibility test app currently includes broad Node polyfills; bundle size is a PoC finding, not an optimized release. See [verification results](docs/verification.md) for measured results and limitations.
+
+## License
+
+[MIT](LICENSE).
