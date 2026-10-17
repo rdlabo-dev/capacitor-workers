@@ -326,6 +326,8 @@ See [the runtime investigation and validation history](docs/runtime-contract.md)
 
 ## Extending the library
 
+We accept completed compatibility units only. Partial implementations remain development work and are not eligible for merge or release. See the [contribution and acceptance policy](CONTRIBUTING.md).
+
 ### Common feature standard
 
 A typed feature definition connects implementations, coverage and contract tests across APIs, services and engine capabilities. The shared host owns initialization rollback and cleanup. See [the common feature standard](docs/feature-standard.md) for the implementation recipe and validation rules. The demo applies it to fetch, a local KV binding profile and WebAssembly validation.
