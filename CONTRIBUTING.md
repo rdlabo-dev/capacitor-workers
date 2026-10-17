@@ -81,3 +81,11 @@ test contracts, but must resolve implementations from the packed package.
 
 See the [compatibility inventory](docs/node-compatibility-inventory.md) for current
 work and the [CI guide](docs/ci.md) for required checks.
+
+Global APIs follow the same module ownership rule: Fetch, Headers, Request,
+Response, AbortSignal, encoding and structuredClone keep their own behavior
+contracts. `globals` tests cover installation, ownership, conflicts, rollback
+and restoration, not a combined API behavior suite. API-specific installation
+regressions live beside that API (for example, `abort/installation.spec.ts`).
+Environment runners may share setup, but expose each API as a separate named
+test; a single passing “globals” result must not stand in for individual APIs.

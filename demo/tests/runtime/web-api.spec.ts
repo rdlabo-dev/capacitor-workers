@@ -3,6 +3,8 @@ import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 import type { ContractResult } from "@rdlabo/capacitor-workers/testing";
 
+import type { WebApiName } from "../validation/web-api-contracts";
+
 let source: string;
 test.beforeAll(async () => {
   const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -25,51 +27,59 @@ test.beforeAll(async () => {
   source = result.outputFiles[0].text;
 });
 
-for (const execution of ["direct", "worker"] as const) {
-  test(`Web API candidate contracts in ${execution}`, async ({ page }) => {
-    await page.goto("about:blank");
-    const report = await page.evaluate(
-      async ({ source, execution }) => {
-        if (execution === "direct") {
-          const script = document.createElement("script");
-          script.textContent = source;
-          document.head.append(script);
-          return (
-            globalThis as unknown as {
-              runWebApiContracts(): Promise<ContractResult[]>;
-            }
-          ).runWebApiContracts();
-        }
-        const url = URL.createObjectURL(
-          new Blob(
-            [
-              source,
-              ";runWebApiContracts().then(report => postMessage(report));",
-            ],
-            { type: "text/javascript" },
-          ),
-        );
-        const worker = new Worker(url);
-        try {
-          return await new Promise<ContractResult[]>((resolve, reject) => {
-            worker.onmessage = (event) => resolve(event.data);
-            worker.onerror = (event) => reject(new Error(event.message));
-          });
-        } finally {
-          worker.terminate();
-          URL.revokeObjectURL(url);
-        }
-      },
-      { source, execution },
-    );
-    expect(report.map((result) => result.cases.length)).toEqual([
-      6, 6, 8, 8, 8, 4, 11,
-    ]);
-    for (const result of report) {
-      expect(result.errors).toEqual([]);
-      expect(result.cases.filter((test) => test.status !== "passed")).toEqual(
-        [],
+for (const [api, count] of Object.entries({
+  encoding: 6,
+  abort: 6,
+  headers: 8,
+  request: 8,
+  response: 8,
+  immediate: 4,
+  structuredClone: 11,
+}) as [WebApiName, number][]) {
+  for (const execution of ["direct", "worker"] as const) {
+    test(`${api} contracts in ${execution}`, async ({ page }) => {
+      await page.goto("about:blank");
+      const report = await page.evaluate(
+        async ({ source, execution, api }) => {
+          if (execution === "direct") {
+            const script = document.createElement("script");
+            script.textContent = source;
+            document.head.append(script);
+            return (
+              globalThis as unknown as {
+                runWebApiContracts(name: WebApiName): Promise<ContractResult[]>;
+              }
+            ).runWebApiContracts(api);
+          }
+          const url = URL.createObjectURL(
+            new Blob(
+              [
+                source,
+                `;runWebApiContracts(${JSON.stringify(api)}).then(report => postMessage(report));`,
+              ],
+              { type: "text/javascript" },
+            ),
+          );
+          const worker = new Worker(url);
+          try {
+            return await new Promise<ContractResult[]>((resolve, reject) => {
+              worker.onmessage = (event) => resolve(event.data);
+              worker.onerror = (event) => reject(new Error(event.message));
+            });
+          } finally {
+            worker.terminate();
+            URL.revokeObjectURL(url);
+          }
+        },
+        { source, execution, api },
       );
-    }
-  });
+      expect(report.map((result) => result.cases.length)).toEqual([count]);
+      for (const result of report) {
+        expect(result.errors).toEqual([]);
+        expect(result.cases.filter((test) => test.status !== "passed")).toEqual(
+          [],
+        );
+      }
+    });
+  }
 }

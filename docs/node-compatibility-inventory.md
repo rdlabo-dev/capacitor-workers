@@ -89,6 +89,40 @@ before runtime initialization. This initialization condition is documented in
 and esbuild in direct and Dedicated Worker execution. No **In progress** row
 is promoted solely because the currently written tests pass.
 
+### Global API test ownership
+
+Global installation and API compatibility are separate test responsibilities.
+Each API owns its behavior contract; environment runners execute those contracts
+and report API-specific test names. `globals` verifies the installation lifecycle.
+
+| Responsibility | Owning tests |
+| --- | --- |
+| Fetch transport and Workers HTTP policy | [fetch/index.spec.ts](../src/compat/fetch/index.spec.ts), [fetch/policy.spec.ts](../src/compat/fetch/policy.spec.ts) |
+| Headers | [headers/index.spec.ts](../src/compat/headers/index.spec.ts) |
+| Request | [request/index.spec.ts](../src/compat/request/index.spec.ts) |
+| Response and installed body decoding | [response/index.spec.ts](../src/compat/response/index.spec.ts), [response/installation.spec.ts](../src/compat/response/installation.spec.ts) |
+| AbortController / AbortSignal and timeout installation | [abort/index.spec.ts](../src/compat/abort/index.spec.ts), [abort/installation.spec.ts](../src/compat/abort/installation.spec.ts) |
+| TextEncoder / TextDecoder | [encoding/index.spec.ts](../src/compat/encoding/index.spec.ts) |
+| structuredClone | [structured-clone/index.spec.ts](../src/compat/structured-clone/index.spec.ts) |
+| setImmediate / clearImmediate | [immediate/index.spec.ts](../src/compat/immediate/index.spec.ts) |
+| Global installation, ownership and restoration | [globals/index.spec.ts](../src/compat/globals/index.spec.ts), [globals/web.spec.ts](../src/compat/globals/web.spec.ts) |
+
+### Test organization follow-up (2026-10-17)
+
+The API-specific test organization above preserves the accepted production
+implementations and shared API contracts from `074f031`. The moved AbortSignal
+and Response tests retain their original installation path and assertions.
+Complete statuses, certification revisions and earlier native evidence remain
+unchanged; this follow-up does not recertify or expand any API unit.
+
+Local revalidation passed: root/demo type checks and build, 235 unit tests,
+93 workerd tests, 66 Chromium/WebKit runtime tests, and the packed-consumer suite
+(162 common cases, 26 direct / 22 isolated, 10 build-tool/raw ESM, 2 cold Vite dev
+and 2 execution-preference cases). The higher runner counts reflect API-level
+test separation; they do not imply additional supported APIs. Manager and
+independent reviews passed after restoring the original overlapping-owner
+AbortSignal integration test. This follow-up has no new native or remote CI claim.
+
 ## Classification
 
 | Code | Meaning                                   | Boundary                                                                                                                                                                         |

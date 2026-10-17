@@ -17,8 +17,13 @@ const harness = createTestHarness({
 });
 beforeAll(() => harness.listen());
 afterAll(() => harness.close());
-it("runs encoding and abort contracts in pinned workerd", async () => {
-  const reports = (await (await harness.fetch("/")).json()) as ContractResult[];
-  expect(reports.map((report) => report.cases.length)).toEqual([6, 6]);
-  for (const report of reports) assertContract(report);
-});
+it.each(["encoding", "abort"])(
+  "runs %s contracts in pinned workerd",
+  async (api) => {
+    const report = (await (
+      await harness.fetch(`/${api}`)
+    ).json()) as ContractResult;
+    expect(report.cases).toHaveLength(6);
+    assertContract(report);
+  },
+);

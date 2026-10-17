@@ -33,17 +33,27 @@ import {
   localStructuredCloneApi,
 } from "../../../src/compat/structured-clone/index.spec";
 
-export function runWebApiContracts() {
-  return Promise.all([
-    runContract(new EncodingImplementation(), encodingContract),
-    runContract(new AbortImplementation(), abortContract),
+const contracts = {
+  encoding: () => runContract(new EncodingImplementation(), encodingContract),
+  abort: () => runContract(new AbortImplementation(), abortContract),
+  headers: () =>
     runContract(new HeadersImplementation(Headers), headersContract),
+  request: () =>
     runContract(new RequestImplementation(Request), requestContract),
+  response: () =>
     runContract(new ResponseImplementation(Response), responseContract),
+  immediate: () =>
     runContract(new ImmediateImplementation(), immediateContract),
+  structuredClone: () =>
     runContract(
       new StructuredCloneImplementation(localStructuredCloneApi),
       structuredCloneContract,
     ),
-  ]);
+};
+export type WebApiName = keyof typeof contracts;
+
+export function runWebApiContracts(name?: WebApiName) {
+  return Promise.all(
+    name ? [contracts[name]()] : Object.values(contracts).map((run) => run()),
+  );
 }
