@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-**No Node.js module in this inventory is certified Complete under the complete-unit acceptance policy yet.** The three initial implementations have passing tests for selected behavior, but that does not establish module completeness. See the [merge and release acceptance gate](../CONTRIBUTING.md#acceptance-gate).
+**`node:path`, `node:querystring`, and `node:string_decoder` are Complete at commit `b1a58d1`.** Their local contracts, native verification, manager/independent reviews and [remote CI](https://github.com/rdlabo-dev/capacitor-workers/actions/runs/38999137150) have passed. HTTP and runtime globals still have implementation work; uncommitted changes are not covered by this certification. See the [merge and release acceptance gate](../CONTRIBUTING.md#acceptance-gate).
 
 The status column describes this repository. **Class A/B/C/D/U/S describes feasibility only.** Existing PoC implementations are completion work, not release-ready exceptions.
 
@@ -14,19 +14,19 @@ The status column describes this repository. **Class A/B/C/D/U/S describes feasi
 | **Not implemented** | No implementation of the required behavior exists. A placeholder or empty export is not an implementation.                                              |
 | **Out of scope**    | Not a local Node compatibility feature.                                                                                                                 |
 
-| Module / feature                       | Current status                    | Implemented scope and remaining work                                                                                                                                                 |
-| -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `node:path`                            | **In progress**                   | [Module contract](../src/compat/path/index.spec.ts): POSIX, win32, relative resolution and the actual Workers `matchesGlob` rejection. Local acceptance verified; remote CI pending. |
-| `node:querystring`                     | **In progress**                   | [Module contract](../src/compat/querystring/index.spec.ts), including all seven exports. Local acceptance verified; remote CI pending.                                               |
-| `node:string_decoder`                  | **In progress**                   | [Module contract](../src/compat/string-decoder/index.spec.ts), including constructor, prototype, encodings and public state. Local acceptance verified; remote CI pending.           |
-| HTTP server / Cloudflare Node bridge   | **In progress**                   | Streaming Express-to-Fetch adaptation exists. This is not complete `node:http` support.                                                                                              |
-| Node global injection                  | **In progress**                   | Buffer/process injection exists; the full runtime-global behavior is unverified.                                                                                                     |
-| `node:async_hooks` / AsyncLocalStorage | **Not implemented**               | `AsyncResource = undefined` is a dependency fallback placeholder. Async context propagation is still under investigation, not declared impossible.                                   |
-| Other module families                  | **Unverified or Not implemented** | See each row below. No family is certified Complete.                                                                                                                                 |
+| Module / feature                       | Current status                    | Implemented scope and remaining work                                                                                                                                            |
+| -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node:path`                            | **Complete**                      | [Module contract](../src/compat/path/index.spec.ts): POSIX, win32, relative resolution and the actual Workers `matchesGlob` rejection. Accepted at `b1a58d1`; remote CI passed. |
+| `node:querystring`                     | **Complete**                      | [Module contract](../src/compat/querystring/index.spec.ts), including all seven exports. Accepted at `b1a58d1`; remote CI passed.                                               |
+| `node:string_decoder`                  | **Complete**                      | [Module contract](../src/compat/string-decoder/index.spec.ts), including constructor, prototype, encodings and public state. Accepted at `b1a58d1`; remote CI passed.           |
+| HTTP server / Cloudflare Node bridge   | **In progress**                   | Streaming Express-to-Fetch adaptation exists. This is not complete `node:http` support.                                                                                         |
+| Node global injection                  | **In progress**                   | Buffer/process injection exists; the full runtime-global behavior is unverified.                                                                                                |
+| `node:async_hooks` / AsyncLocalStorage | **Not implemented**               | `AsyncResource = undefined` is a dependency fallback placeholder. Async context propagation is still under investigation, not declared impossible.                              |
+| Other module families                  | **Unverified or Not implemented** | See each row below. Other module families are not certified Complete.                                                                                                           |
 
 ## Scope and evidence
 
-Inventory date: 2026-10-17. Inventory starting point: `b58b543` (PR #16). Code evidence reflects `2f10c95`; status applies the complete-unit acceptance policy to that implementation.
+Inventory date: 2026-10-17. Inventory starting point: `b58b543` (PR #16). The initial inventory used `2f10c95`; the first three module certifications now reference `b1a58d1`. Later candidate evidence below is explicitly distinguished from that accepted revision.
 This inventory separates implementation feasibility from verified support. Only the bounded profiles in [First batch](#first-batch-implementation-evidence-and-remaining-work) have executable compatibility evidence.
 It covers every category and non-functional stub in the [Workers Node.js overview](https://developers.cloudflare.com/workers/runtime-apis/nodejs/), splitting mixed categories into API families below. It is not an exhaustive export/signature manifest of Node.js itself.
 
@@ -60,15 +60,15 @@ The [official overview](https://developers.cloudflare.com/workers/runtime-apis/n
 | **In progress**       | Buffer globals       | unqualified `Buffer`                                                               | B                          | Inject before application/dependency evaluation; imports and global must use the same implementation.                                                                                                |
 | Unverified            | Events               | `EventEmitter`, `once`, `on`, listener bookkeeping                                 | A                          | Preserve ordering, error events, cancellation and iterator cleanup.                                                                                                                                  |
 | Not implemented       | Events + context     | `EventEmitterAsyncResource` where exposed                                          | U                          | Depends on the async context decision; do not claim parity from EventEmitter alone.                                                                                                                  |
-| **In progress**       | Path                 | POSIX and win32 operations, relative resolution and baseline matchesGlob rejection | A                          | Full module candidate verified locally; remote CI pending. See the [contract](../src/compat/path/index.spec.ts).                                                                                     |
-| Not implemented       | Path                 | `win32`                                                                            | A                          | No win32 implementation; the current export is null.                                                                                                                                                 |
-| Unverified            | Path                 | cwd-dependent `resolve`/`relative`                                                 | A                          | The polyfill uses its ambient cwd; no Workers-compatible virtual cwd contract exists.                                                                                                                |
-| Not implemented       | Path                 | `matchesGlob`                                                                      | A                          | No adapter implementation or contract.                                                                                                                                                               |
+| **Complete**          | Path                 | POSIX and win32 operations, relative resolution and baseline matchesGlob rejection | A                          | Full module candidate verified locally; remote CI passed at `b1a58d1`. See the [contract](../src/compat/path/index.spec.ts).                                                                         |
+| **Complete**          | Path                 | `win32`                                                                            | A                          | Implemented with the pinned Workers module, including the subpath export; accepted at `b1a58d1`; remote CI passed.                                                                                   |
+| **Complete**          | Path                 | cwd-dependent `resolve`/`relative`                                                 | A                          | Matches the pinned Workers virtual root `/`; accepted at `b1a58d1`; remote CI passed.                                                                                                                |
+| **Complete**          | Path                 | `matchesGlob`                                                                      | A/S                        | Reproduces the pinned Workers throwing behavior with a passing contract; remote CI passed at `b1a58d1`.                                                                                              |
 | Unverified            | URL                  | `URL`, `URLSearchParams`, legacy parse/format/resolve, file URL conversion         | A                          | Standard APIs plus JS adaptation; Node-specific options need contract tests.                                                                                                                         |
-| **In progress**       | Query strings        | parse/stringify/escape/unescape                                                    | A                          | All seven exports covered by the expanded module contract; remote CI pending.                                                                                                                        |
+| **Complete**          | Query strings        | parse/stringify/escape/unescape                                                    | A                          | All seven exports covered by the expanded module contract; remote CI passed at `b1a58d1`.                                                                                                            |
 | Unverified            | Punycode             | encode/decode, domain conversion helpers                                           | A                          | JS algorithm; preserve deprecated-module availability for the selected profile.                                                                                                                      |
-| **In progress**       | String decoder       | `StringDecoder` constructor and write/end/text                                     | A                          | Constructor, methods, encoding/state and reuse contracts verified locally; remote CI pending.                                                                                                        |
-| **In progress**       | String decoder       | internal methods/state: `text`, `lastChar`, `lastNeed`, `lastTotal`                | A                          | Included in the expanded module contract; remote CI pending.                                                                                                                                         |
+| **Complete**          | String decoder       | `StringDecoder` constructor and write/end/text                                     | A                          | Constructor, methods, encoding/state and reuse contracts verified locally; remote CI passed at `b1a58d1`.                                                                                            |
+| **Complete**          | String decoder       | internal methods/state: `text`, `lastChar`, `lastNeed`, `lastTotal`                | A                          | Included in the expanded module contract; remote CI passed at `b1a58d1`.                                                                                                                             |
 | Unverified            | Streams              | Readable/Writable/Duplex/Transform/PassThrough                                     | A                          | JS state machines; backpressure, destroy, error and event order.                                                                                                                                     |
 | Unverified            | Stream helpers       | pipeline/finished, async iterators, promises, Web conversions                      | A                          | Web Streams and JS adaptation; abort and ownership must propagate.                                                                                                                                   |
 | Unverified            | Utilities            | promisify/callbackify, format, MIME parsing, parseArgs where exposed               | A                          | Pure JS adapters; audit actual exports for the pinned profile.                                                                                                                                       |
@@ -207,21 +207,21 @@ Each compatibility module owns a directory under `src/compat/<module>/`, with `i
 
 ## First batch: implementation evidence and remaining work
 
-The three module implementations now have no declared exclusions. They remain
-**In progress** until the required remote CI has passed for this revision. Local
-manager and independent acceptance reviews have no outstanding code findings.
+The three module implementations have no declared exclusions and are **Complete
+at `b1a58d1`**. Manager and independent acceptance reviews have no outstanding
+code findings, and [all remote CI jobs passed](https://github.com/rdlabo-dev/capacitor-workers/actions/runs/38999137150).
 Do not interpret the receiving-side HTTP tests as completion of `node:http`.
 
 Baseline: workerd **1.20261012.1**, compatibility date **2026-10-17**, no additional
 compatibility flags. The contract is shared by workerd and both local execution
 modes, rather than maintaining separate expected outputs for the browser.
 
-| Unit                                                   | Implemented and tested                                                                                                                                                                  | Contract groups |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| `node:path`, `path`, and both `posix`/`win32` subpaths | All exported operations, POSIX and Windows paths, UNC/namespaces, relative resolution, invalid arguments and export identity. `matchesGlob` reproduces the baseline's actual rejection. | 14              |
-| `node:querystring`, `querystring`                      | All seven exports, separators, duplicate keys, limits, malformed escapes, null-prototype results, custom codecs, URI errors and BOM preservation.                                       | 11              |
-| `node:string_decoder`, `string_decoder`                | Constructor, `write`/`end`/`text`, all baseline encodings, `lastChar`/`lastNeed`/`lastTotal`, partial and invalid input, BOM, input windows, invalid receivers and reuse after `end`.   | 15              |
-| HTTP / Cloudflare Node bridge (incomplete)             | Server and port descriptors, ephemeral ports, close lifecycle, streaming request/response, asynchronous handler rejection and dispatch context.                                         | 9               |
+| Unit                                                   | Implemented and tested                                                                                                                                                                                                      | Contract groups |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `node:path`, `path`, and both `posix`/`win32` subpaths | All exported operations, POSIX and Windows paths, UNC/namespaces, relative resolution, invalid arguments and export identity. `matchesGlob` reproduces the baseline's actual rejection.                                     | 14              |
+| `node:querystring`, `querystring`                      | All seven exports, separators, duplicate keys, limits, malformed escapes, null-prototype results, custom codecs, URI errors and BOM preservation.                                                                           | 11              |
+| `node:string_decoder`, `string_decoder`                | Constructor, `write`/`end`/`text`, all baseline encodings, `lastChar`/`lastNeed`/`lastTotal`, partial and invalid input, BOM, input windows, invalid receivers and reuse after `end`.                                       | 15              |
+| HTTP / Cloudflare Node bridge (incomplete)             | Server/port descriptors, lifecycle, streaming, asynchronous errors, dispatch context, client request/get/validation/destroy/timeout, headers and baseline stubs. Client network cases currently use a shared fetch fixture. | 18              |
 
 Path and querystring adapt the pinned workerd source. StringDecoder uses a local
 UTF-8 state machine plus adapters around the npm `string_decoder` implementation
@@ -229,24 +229,46 @@ for other encodings. Each module carries its upstream notices and Apache license
 the build copies these into the npm tarball and the packed-consumer test checks
 their presence.
 
-Local verification for the completion work:
+Local verification during the completion work (not whole-unit certification):
 
-- Root unit tests: 143 passed.
-- Pinned workerd: all 49 shared Node groups passed; the full Workers suite
-  passed all 59 tests.
-- Chromium and WebKit, direct and Dedicated Worker: 38 runtime tests passed.
-- Vite and esbuild: 7 build unit tests and 28 integration tests passed, including
-  bare/`node:` imports, default/named exports and both path subpaths.
-- Packed consumer: 26 direct, 22 isolated and 126 common feature cases passed;
-  Vite/esbuild/raw ESM and configured Vite development imports also passed.
-- iOS 26.1 and Android 16: each completed all 157 runtime checks with zero
-  exclusions or failures, including 98 Node groups across direct and Dedicated
-  Worker execution. `FEATURE_REPORT` and `NATIVE_SUMMARY` record the complete run
-  in generated `demo/artifacts/node-light/` evidence. Native runs use source-built
-  assets; the separate packed-consumer run verifies the package boundary.
-- Vite cold development startup: 20 tests passed.
-- Remote CI for the implementation revision is still pending. These local results
-  do not satisfy that gate by themselves.
+- Root unit tests: 184 passed; type checking passes.
+- Pinned workerd: 58 shared Node groups; separate Headers/Request/Response contracts
+  each contain 8 groups, structuredClone 11, and Immediate 4.
+- Chromium and WebKit, direct and Dedicated Worker: 42 runtime tests and 20
+  development-startup tests passed. The five candidate Web API contracts also pass
+  both browsers and execution modes, including the structuredClone review regressions.
+- Vite/esbuild: 7 build unit tests and 30 integration tests passed.
+- Packed consumer: 26 direct, 22 isolated and 144 common feature cases passed;
+  Vite/esbuild/raw ESM 10 cases and configured Vite development 2 cases passed.
+  Candidate internal APIs resolve from the installed tarball, not checkout sources.
+- iOS 26.1 and Android 16: each passed 256 runtime checks, with no exclusions,
+  including 116 Node groups across direct and Dedicated Worker execution. This run
+  includes the structuredClone review regressions and is built alongside the
+  native candidate plugin. It does not exercise the new outbound transport or
+  certify the missing whole-runtime network ownership.
+  Generated evidence is under
+  `demo/artifacts/node-light/`.
+- These HTTP client contracts do not establish native network compatibility.
+  Separate real loopback probes found URLSession loses duplicate cookies/raw gzip
+  and fails abort/early-response cases; OkHttp passes six of seven probes but waits
+  for upload EOF on HTTP/1. Both candidates remain incomplete.
+- An isolated AsyncHTTPClient 1.36.2 proof preserves duplicate cookies, raw gzip and
+  response headers before upload EOF on macOS and iOS 26.1. This is not yet a
+  completed transport. The current uncommitted iOS candidate now uses it behind
+  the existing NativeConnection byte contract; its seven real-network probes pass,
+  but whole-runtime ownership and release acceptance remain. A follow-up
+  iOS probe also rejects a pending body read on cancellation and rejects an untrusted
+  local TLS certificate. Full hostname/positive TLS and upload/header-wait cancellation
+  tests remain.
+- An Android 16 Netty 4.1.139.Final proof preserves the same three HTTP properties
+  and builds with minSdk 24. Netty 4.2.19.Final fails dexing at minSdk 24; 4.1 also
+  needs application packaging rules for duplicate JAR metadata. Neither version is
+  adopted as a product dependency. Build/setup cost and lifecycle acceptance remain.
+- Remote CI at `b1a58d1` passed library, compatibility, packed consumer, upstream
+  and the final CI gate. Earlier failures exposed clean-checkout type resolution
+  and an unnecessary Service Worker reload; both have regression fixes.
+  This certifies the three unchanged first-batch modules, not uncommitted HTTP,
+  globals or native-transport candidates.
 
 Reproduce from the repository root (after installing root and demo dependencies):
 
@@ -279,14 +301,17 @@ not certify them or the entire package.
   synthesized Host/Transfer-Encoding/socket metadata against actual Workers
   transport behavior. Unrestricted outbound traffic needs native transport.
 - **Node global injection:** unqualified injected identifiers are not enough.
-  A production browser probe finds `globalThis.Buffer`, `globalThis.process` and
-  `globalThis.global` absent. Complete pre-evaluation and dynamic-import behavior,
-  import identity, scope ownership and cleanup without leaking build-host state.
+  Pre-evaluation installation, dynamic imports, import/global identity, collision
+  checks and scoped cleanup now have regression coverage. The Worker bootstrap
+  also avoids WebKit evaluating an entry twice through a dynamic-import cycle.
+  Final acceptance and the complete runtime-global surface remain outstanding.
 - **Web runtime globals:** audit each named API, Workers-specific extensions,
   cloning/body ownership and cancellation. Browser fetch retains CORS and forbidden
   header restrictions; an asynchronous native transport and its streaming/abort
   contract are required for those operations. The existing document plugin and
-  buffered Capacitor HTTP calls do not establish that compatibility.
+  buffered Capacitor HTTP calls do not establish that compatibility. Native
+  connections must be owned by a runtime and released when that runtime stops;
+  old callbacks must never reach a replacement WebView.
 
 ## Decisions required before implementation
 
