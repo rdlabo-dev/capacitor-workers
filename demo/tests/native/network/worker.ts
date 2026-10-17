@@ -1,9 +1,9 @@
-import { initializeWorkerNetwork } from "../../../../src/compat/fetch/relay";
+import { initializeWorkerNetwork } from "../../../../dist/compat/fetch/relay";
 import {
   getNativeCall,
   nativeNetwork,
-} from "../../../../src/compat/fetch/native-network";
-import { FetchTransport } from "../../../../src/compat/fetch/transport";
+} from "../../../../dist/compat/fetch/native-network";
+import { FetchTransport } from "../../../../dist/compat/fetch/transport";
 import { runNativeNetwork } from "../../validation/native-network";
 
 await initializeWorkerNetwork();

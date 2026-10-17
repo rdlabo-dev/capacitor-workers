@@ -82,6 +82,19 @@ export function createNetworkFixture() {
           response.writeContinue();
           response.end("continued");
           return;
+        case "/tcp-data-fin":
+        case "/tcp-data-reset": {
+          const socket = request.socket;
+          socket.write("received");
+          setTimeout(() => {
+            if (url.pathname === "/tcp-data-reset") socket.resetAndDestroy();
+            else socket.end();
+          }, 250);
+          return;
+        }
+        case "/tcp-reset":
+          setTimeout(() => request.socket.resetAndDestroy(), 50);
+          return;
         case "/large":
           response.end(Buffer.alloc(512 * 1024, 97));
           return;

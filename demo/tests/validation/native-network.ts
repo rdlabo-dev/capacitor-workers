@@ -1,21 +1,27 @@
+import net from "node:net";
+import { handleAsNodeConnection, connectHandler } from "cloudflare:node";
+import {
+  runNetIncomingContract,
+  runNetNetworkContract,
+} from "../../../src/compat/net/index.spec";
 import { request, get } from "node:http";
 import {
   nodeHttpNetworkContract,
   nodeHttpNetworkFeature,
 } from "../../../src/compat/http/index.spec";
-import { capacitorWorkers } from "../../../src/index";
-import { createFetch } from "../../../src/compat/fetch";
-import { Request } from "../../../src/compat/request";
+import { capacitorWorkers } from "../../../dist/index";
+import { createFetch } from "../../../dist/compat/fetch";
+import { Request } from "../../../dist/compat/request";
 import {
   fetchPolicyContract,
   fetchPolicyFeature,
 } from "../../../src/compat/fetch/policy.spec";
-import { FetchTransport } from "../../../src/compat/fetch/transport";
+import { FetchTransport } from "../../../dist/compat/fetch/transport";
 import {
   createNativeNetwork,
   type NativeCall,
-} from "../../../src/compat/fetch/native-network";
-import { createNetworkScope } from "../../../src/compat/fetch/scope";
+} from "../../../dist/compat/fetch/native-network";
+import { createNetworkScope } from "../../../dist/compat/fetch/scope";
 
 declare const __NETWORK_TLS__: boolean;
 type Result = { name: string; ok: boolean; error?: string };
@@ -182,7 +188,12 @@ export async function runNativeNetwork(
   try {
     for (const name of fetchPolicyFeature.cases) {
       try {
-        await fetchPolicyContract.cases[name]({ fetch, Request, baseURL });
+        // The contract is source-owned; the native fixture deliberately executes
+        // the compiled classes. Their private fields have separate TS identities.
+        const api = { fetch, Request, baseURL } as unknown as Parameters<
+          (typeof fetchPolicyContract.cases)[typeof name]
+        >[0];
+        await fetchPolicyContract.cases[name](api);
         results.push({ name: `policy: ${name}`, ok: true });
       } catch (error) {
         results.push({
@@ -256,6 +267,25 @@ export async function runNativeNetwork(
     const compressed = await globalThis.fetch(`${baseURL}/brotli`);
     assert((await compressed.text()) === "compressed body");
     results.push({ name: "public API local and outbound", ok: true });
+    try {
+      await runNetNetworkContract(baseURL).catch((error) => {
+        throw new Error(`outbound TCP: ${String(error)}`);
+      });
+      for (const accept of [handleAsNodeConnection, connectHandler().connect]) {
+        await runNetIncomingContract(net as never, (socket) =>
+          accept(socket as never),
+        ).catch((error) => {
+          throw new Error(`incoming TCP: ${String(error)}`);
+        });
+      }
+      results.push({ name: "node:net real TCP", ok: true });
+    } catch (error) {
+      results.push({
+        name: "node:net real TCP",
+        ok: false,
+        error: String(error),
+      });
+    }
     for (const name of nodeHttpNetworkFeature.cases) {
       try {
         await nodeHttpNetworkContract.cases[name]({ request, get, baseURL });

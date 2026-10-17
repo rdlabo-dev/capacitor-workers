@@ -8,6 +8,12 @@ public final class CapacitorWorkersPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "socketWatch", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "socketOpen", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "socketWrite", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "socketEnd", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "socketRead", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "socketClose", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "networkOpen", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "networkWrite", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "networkEnd", returnType: CAPPluginReturnPromise),
@@ -63,6 +69,12 @@ public final class CapacitorWorkersPlugin: CAPPlugin, CAPBridgedPlugin {
             Task { await owner.closeAll(); call.resolve() }
         }
     }
+    @objc func socketWatch(_ call: CAPPluginCall) { network.socketWatch(call) }
+    @objc func socketOpen(_ call: CAPPluginCall) { network.socketOpen(call) }
+    @objc func socketWrite(_ call: CAPPluginCall) { network.socketWrite(call) }
+    @objc func socketEnd(_ call: CAPPluginCall) { network.socketEnd(call) }
+    @objc func socketRead(_ call: CAPPluginCall) { network.socketRead(call) }
+    @objc func socketClose(_ call: CAPPluginCall) { network.socketClose(call) }
     @objc func networkOpen(_ call: CAPPluginCall) { network.networkOpen(call) }
     @objc func networkWrite(_ call: CAPPluginCall) { network.networkWrite(call) }
     @objc func networkEnd(_ call: CAPPluginCall) { network.networkEnd(call) }

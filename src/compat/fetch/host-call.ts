@@ -1,6 +1,18 @@
 import type { NativeCall } from "./native-network.js";
 
 type Host = {
+  socketWatch(callback: string, id: string): void;
+  socketOpen(
+    callback: string,
+    id: string,
+    host: string,
+    port: number,
+    tls: boolean,
+  ): void;
+  socketWrite(callback: string, id: string, chunk: string): void;
+  socketEnd(callback: string, id: string): void;
+  socketRead(callback: string, id: string, maxBytes: number): void;
+  socketClose(callback: string, id: string): void;
   networkOpen(
     callback: string,
     id: string,
@@ -59,6 +71,30 @@ export function getHostCall(): NativeCall | undefined {
       try {
         const handle = String(args.id);
         switch (method) {
+          case "socketWatch":
+            host.socketWatch(id, handle);
+            break;
+          case "socketOpen":
+            host.socketOpen(
+              id,
+              handle,
+              String(args.host),
+              Number(args.port),
+              args.tls === true,
+            );
+            break;
+          case "socketWrite":
+            host.socketWrite(id, handle, String(args.chunk));
+            break;
+          case "socketEnd":
+            host.socketEnd(id, handle);
+            break;
+          case "socketRead":
+            host.socketRead(id, handle, Number(args.maxBytes));
+            break;
+          case "socketClose":
+            host.socketClose(id, handle);
+            break;
           case "networkOpen":
             host.networkOpen(
               id,

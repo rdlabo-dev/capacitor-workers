@@ -193,7 +193,7 @@ npm run test:native:network -- android <emulator-serial>
 ```
 
 These commands replace only the temporary consumer's generated `dist`, sync the
-plugin, build, install and check all 80 results. They fail on missing or failed
+plugin, build, install and check all 82 results. They fail on missing or failed
 results. Build logs and reports are written under the consumer's
 `artifacts/network/`. Android uses `10.0.2.2:4201`; iOS uses `127.0.0.1:4201`.
 `ADB` and `ADB_SERVER_PORT` can select an alternate Android tool/server.
@@ -208,7 +208,13 @@ NETWORK_TLS=1 npm run test:native:network -- android <emulator-serial>
 ```
 
 This compares the valid, self-signed and hostname-mismatch certificate endpoints
-maintained by [badssl](https://badssl.com/). The native run then requires 86 results.
+maintained by [badssl](https://badssl.com/). The native run then requires 88 results.
 It uses public test servers and therefore needs working DNS and Internet access;
 DNS errors and timeouts are failures, not evidence that certificate validation
-worked. The ordinary 80-case loopback suite remains independent of those services.
+worked. The ordinary 82-case loopback suite remains independent of those services.
+
+The same network run also checks `node:net`: half-close, vectored writes, custom
+lookup, `onread` buffers, abort/timeout, paused payload preservation and FIN/reset
+notification before and after data delivery. Both Cloudflare TCP helpers dispatch
+through a public `net.Server`, including drop, pause-on-connect and close ordering.
+The server registers a logical port; it does not open an OS listening socket.

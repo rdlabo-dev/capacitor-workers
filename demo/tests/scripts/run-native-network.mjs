@@ -23,6 +23,7 @@ const run = (command, args, options = {}) =>
     cwd: consumer,
     encoding: "utf8",
     stdio: "pipe",
+    maxBuffer: 64 * 1024 * 1024,
     ...options,
   });
 const adb = process.env.ADB ?? "adb";
@@ -77,6 +78,7 @@ let log = "";
 try {
   if (platform === "ios") {
     const build = run("xcodebuild", [
+      "-quiet",
       "-project",
       "ios/App/App.xcodeproj",
       "-scheme",
@@ -164,7 +166,7 @@ try {
   );
   assert.equal(
     results.length,
-    process.env.NETWORK_TLS === "1" ? 86 : 80,
+    process.env.NETWORK_TLS === "1" ? 88 : 82,
     "Unexpected native network contract coverage",
   );
   assert.deepEqual(

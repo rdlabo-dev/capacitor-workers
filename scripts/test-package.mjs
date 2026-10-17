@@ -65,6 +65,7 @@ for (const module of [
   "querystring",
   "string-decoder",
   "http",
+  "net",
   "headers",
   "request",
   "response",
@@ -262,7 +263,7 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
   }
   const features = await page.evaluate(() => window.runFeatures());
   if (
-    features.flatMap((report) => report.cases).length !== 144 ||
+    features.flatMap((report) => report.cases).length !== 162 ||
     features.some(
       (report) =>
         report.errors.length ||
@@ -346,6 +347,14 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
         );
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+    page.on("requestfailed", (request) =>
+      console.error("Consumer request:", request.url(), request.failure()),
+    );
+    page.on("pageerror", (error) => console.error("Consumer page:", error));
+    page.on("console", (message) => {
+      if (message.type() === "error")
+        console.error("Consumer console:", message.text());
+    });
     await page.goto("http://127.0.0.1:4187/features.html");
     await page.waitForFunction(
       () => typeof window.runConfiguredFeature === "function",
@@ -365,6 +374,9 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
     console.log(
       "Packed consumer: configured Fetch subpath in Vite dev 2/2 passed",
     );
+  } catch (error) {
+    console.error(devOutput);
+    throw error;
   } finally {
     dev.kill("SIGTERM");
   }

@@ -61,6 +61,9 @@ it("owns and restores a missing resource-management symbol alongside Web globals
   const first = installWebGlobals(target);
   const installed = Object.getOwnPropertyDescriptor(symbol, "asyncDispose");
   expect(typeof installed?.value).toBe("symbol");
+  expect(typeof Object.getOwnPropertyDescriptor(symbol, "dispose")?.value).toBe(
+    "symbol",
+  );
   const second = installWebGlobals(target);
   first();
   expect(Object.getOwnPropertyDescriptor(symbol, "asyncDispose")).toEqual(
@@ -68,6 +71,7 @@ it("owns and restores a missing resource-management symbol alongside Web globals
   );
   second();
   expect(Object.hasOwn(symbol, "asyncDispose")).toBe(false);
+  expect(Object.hasOwn(symbol, "dispose")).toBe(false);
 });
 
 it("owns the AbortSignal timeout method without replacing native branding", async () => {

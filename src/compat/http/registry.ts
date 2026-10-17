@@ -1,3 +1,4 @@
+import { tcpPorts } from "../net/ports.js";
 export const kSetIncomingBody = Symbol("setIncomingBody");
 export const kSetIncomingFetchResponse = Symbol("setIncomingFetchResponse");
 export const kSetIncomingSocket = Symbol("setIncomingSocket");
@@ -17,32 +18,11 @@ export interface LogicalPortHandler {
   ) => Promise<void>;
 }
 
-const handlers = new Map<number, LogicalPortHandler>();
-let nextPort = 49152;
-
-export function getHandler(port: number): LogicalPortHandler | undefined {
-  return handlers.get(port);
-}
-
+export const getHandler = (port: number) => tcpPorts.getHandler(port);
 export function setHandler(port: number, handler: LogicalPortHandler): void {
-  handlers.set(port, handler);
+  if (!tcpPorts.tryBind(port)) throw new Error(`Port ${port} is already bound`);
+  tcpPorts.setHandler(port, handler);
 }
-
-export function release(port: number): void {
-  handlers.delete(port);
-}
-
-export function hasHandler(port: number): boolean {
-  return handlers.has(port);
-}
-
-export function ephemeral(): number {
-  const start = nextPort;
-  while (handlers.has(nextPort)) {
-    nextPort = nextPort === 65535 ? 49152 : nextPort + 1;
-    if (nextPort === start) return 0;
-  }
-  const port = nextPort;
-  nextPort = nextPort === 65535 ? 49152 : nextPort + 1;
-  return port;
-}
+export const release = (port: number) => tcpPorts.release(port);
+export const hasHandler = (port: number) => tcpPorts.isBound(port);
+export const ephemeral = () => tcpPorts.ephemeral();

@@ -23,6 +23,11 @@ import {
   NodeHttp,
 } from "../../../src/compat/http/index.spec";
 
+import {
+  NetImplementation,
+  netContract,
+} from "../../../src/compat/net/index.spec";
+
 export type NodeProfile = "bundled" | "workers";
 
 export async function runNodeContracts(
@@ -36,5 +41,6 @@ export async function runNodeContracts(
     await runContract(new NodeQuerystring(), nodeQuerystringContract),
     await runContract(new NodeStringDecoder(), nodeStringDecoderContract),
     await runContract(new NodeHttp(), nodeHttpContract),
+    await runContract(new NetImplementation(), netContract),
   ];
 }

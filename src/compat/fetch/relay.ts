@@ -12,6 +12,12 @@ const methods = new Set<NativeNetworkMethod>([
   "networkEnd",
   "networkRead",
   "networkClose",
+  "socketWatch",
+  "socketOpen",
+  "socketWrite",
+  "socketEnd",
+  "socketRead",
+  "socketClose",
 ]);
 const connect = "capacitor-workers:network";
 

@@ -6,7 +6,7 @@ import {
 
 /** Host-side owner; it survives termination of the Dedicated Worker it serves. */
 export function createNetworkScope(nativeCall: NativeCall) {
-  const handles = new Set<string>();
+  const handles = new Map<string, "network" | "socket">();
   const closing = new Map<string, Promise<void>>();
   let disposal: Promise<void> | undefined;
   let rejectStopped!: (error: Error) => void;
@@ -14,11 +14,14 @@ export function createNetworkScope(nativeCall: NativeCall) {
     rejectStopped = reject;
   });
   void stopped.catch(() => {});
-  const close = (id: string): Promise<void> => {
+  const close = (
+    id: string,
+    kind = handles.get(id) ?? "network",
+  ): Promise<void> => {
     const existing = closing.get(id);
     if (existing) return existing;
     const promise = Promise.resolve()
-      .then(() => nativeCall("CapacitorWorkers", "networkClose", { id }))
+      .then(() => nativeCall("CapacitorWorkers", `${kind}Close`, { id }))
       .then(() => {
         handles.delete(id);
         closing.delete(id);
@@ -31,34 +34,39 @@ export function createNetworkScope(nativeCall: NativeCall) {
     if (plugin !== "CapacitorWorkers" || typeof args.id !== "string")
       return Promise.reject(new TypeError("Invalid network call"));
     const id = args.id;
-    if (method === "networkOpen") {
+    const kind = method.startsWith("socket") ? "socket" : "network";
+    const opening = method === `${kind}Open`;
+    const shutting = method === `${kind}Close`;
+    if (handles.has(id) && handles.get(id) !== kind)
+      return Promise.reject(new Error("Network handle transport mismatch"));
+    if (opening) {
       if (handles.has(id))
         return Promise.reject(new Error("Duplicate network handle"));
-      handles.add(id);
+      handles.set(id, kind);
     } else if (!handles.has(id)) {
-      return method === "networkClose"
+      return shutting
         ? Promise.resolve()
         : Promise.reject(new Error("Unknown network handle"));
     }
     let operation: Promise<unknown>;
     try {
-      operation =
-        method === "networkClose"
-          ? close(id)
-          : nativeCall(plugin, method, args);
+      operation = shutting ? close(id, kind) : nativeCall(plugin, method, args);
     } catch (error) {
-      if (method === "networkOpen") handles.delete(id);
+      if (opening) handles.delete(id);
       return Promise.reject(error);
     }
     const tracked = operation.then(
       async (result) => {
         // Also cover an injected bridge that schedules registration later than
         // close. Never hand a late opening response to a replacement runtime.
-        if (disposal && method === "networkOpen") await close(id);
+        if (opening && (disposal || !handles.has(id))) {
+          await close(id, kind);
+          throw new Error("Network handle closed before opening completed");
+        }
         return result;
       },
       async (error) => {
-        if (method === "networkOpen") await close(id);
+        if (opening) await close(id, kind);
         throw error;
       },
     );
@@ -72,7 +80,9 @@ export function createNetworkScope(nativeCall: NativeCall) {
         // Set ownership closed before calling an external bridge, which may
         // synchronously invoke application code.
         disposal = Promise.resolve().then(async () => {
-          const results = await Promise.allSettled([...handles].map(close));
+          const results = await Promise.allSettled(
+            [...handles].map(([id, kind]) => close(id, kind)),
+          );
           const errors = results.flatMap((result) =>
             result.status === "rejected" ? [result.reason] : [],
           );

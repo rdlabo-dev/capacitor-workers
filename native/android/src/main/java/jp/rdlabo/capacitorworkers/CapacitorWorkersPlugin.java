@@ -95,6 +95,15 @@ public class CapacitorWorkersPlugin extends Plugin {
         return headers;
     }
 
+    @PluginMethod public void socketWatch(PluginCall call) { network.sockets.watch(call.getString("id"),result(call)); }
+    @PluginMethod public void socketOpen(PluginCall call) {
+        network.sockets.open(call.getString("id"),call.getString("host"),call.getInt("port",0),call.getBoolean("tls",false),result(call));
+    }
+    @PluginMethod public void socketWrite(PluginCall call) { network.sockets.write(call.getString("id"),call.getString("chunk"),result(call)); }
+    @PluginMethod public void socketEnd(PluginCall call) { network.sockets.end(call.getString("id"),result(call)); }
+    @PluginMethod public void socketRead(PluginCall call) { network.sockets.read(call.getString("id"),call.getInt("maxBytes",65536),result(call)); }
+    @PluginMethod public void socketClose(PluginCall call) { network.sockets.close(call.getString("id"),result(call)); }
+
     @PluginMethod public void networkOpen(PluginCall call) {
         String id = call.getString("id");
         String url = call.getString("url");
@@ -185,6 +194,12 @@ public class CapacitorWorkersPlugin extends Plugin {
                 if (runtime == owner && starting != null) { main.removeCallbacks(timeout); starting.resolve(); starting = null; }
             });
         }
+        @JavascriptInterface public void socketWatch(String callbackId,String id) { network.sockets.watch(id,hostResult(owner,callbackId)); }
+        @JavascriptInterface public void socketOpen(String callbackId,String id,String host,int port,boolean tls) { network.sockets.open(id,host,port,tls,hostResult(owner,callbackId)); }
+        @JavascriptInterface public void socketWrite(String callbackId,String id,String chunk) { network.sockets.write(id,chunk,hostResult(owner,callbackId)); }
+        @JavascriptInterface public void socketEnd(String callbackId,String id) { network.sockets.end(id,hostResult(owner,callbackId)); }
+        @JavascriptInterface public void socketRead(String callbackId,String id,int count) { network.sockets.read(id,count,hostResult(owner,callbackId)); }
+        @JavascriptInterface public void socketClose(String callbackId,String id) { network.sockets.close(id,hostResult(owner,callbackId)); }
         @JavascriptInterface public void networkOpen(String callbackId, String id, String url, String method, String headersJson, boolean hasBody, String encodeResponseBody) {
             List<String[]> headers;
             try {

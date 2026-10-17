@@ -2,6 +2,12 @@ import { getHostCall } from "./host-call.js";
 import type { NativeConnection, NativeNetwork } from "./transport.js";
 
 export type NativeNetworkMethod =
+  | "socketWatch"
+  | "socketOpen"
+  | "socketWrite"
+  | "socketEnd"
+  | "socketRead"
+  | "socketClose"
   | "networkOpen"
   | "networkWrite"
   | "networkEnd"

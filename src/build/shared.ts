@@ -1,3 +1,4 @@
+import stdlib from "node-stdlib-browser";
 import { fileURLToPath } from "node:url";
 
 export const configuredPath = fileURLToPath(
@@ -27,12 +28,19 @@ const polyfill = (specifier: string) =>
   fileURLToPath(import.meta.resolve(specifier));
 export function compatibilityAliases() {
   return {
+    // readable-stream uses this trailing-slash package import. Resolve it
+    // before Vite converts the process prefix into a directory path.
+    "process/": stdlib.process,
     "cloudflare:node": compatPath("cloudflare-node"),
     "cloudflare:workers": compatPath("cloudflare-workers"),
     "node:async_hooks": compatPath("async-hooks"),
     async_hooks: compatPath("async-hooks"),
     "node:http": compatPath("http"),
     http: compatPath("http"),
+    "node:net": compatPath("net"),
+    net: compatPath("net"),
+    "node:stream": polyfill("readable-stream/lib/ours/browser.js"),
+    stream: polyfill("readable-stream/lib/ours/browser.js"),
     // Subpath aliases must precede their parents: object-form alias entries
     // also match an "<alias>/" prefix.
     "node:path/win32": compatPath("path/win32"),

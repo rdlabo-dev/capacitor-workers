@@ -44,6 +44,7 @@ public final class WorkerNetwork {
     private final Map<String, Connection> connections = new ConcurrentHashMap<>();
     private EventLoopGroup group;
     private boolean stopped;
+    final WorkerSockets sockets = new WorkerSockets();
 
     private final class Connection extends SimpleChannelInboundHandler<HttpObject> {
         final String id;
@@ -218,7 +219,7 @@ public final class WorkerNetwork {
         connection.afterConnect(() -> {
             if (connection.ended) { accepted.reject("Upload already ended"); return; }
             connection.channel.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(chunk))).addListener(future -> {
-                if (future.isSuccess()) accepted.resolve(null);
+                if (future.isSuccess() || connection.complete) accepted.resolve(null);
                 else { accepted.reject("Write failed: " + future.cause()); connection.fail("Upload failed"); }
             });
         }, accepted);
@@ -231,7 +232,7 @@ public final class WorkerNetwork {
             if (connection.ended) { result.resolve(null); return; }
             connection.ended = true;
             connection.channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(future -> {
-                if (future.isSuccess()) result.resolve(null);
+                if (future.isSuccess() || connection.complete) result.resolve(null);
                 else { result.reject("Upload end failed: " + future.cause()); connection.fail("Upload failed"); }
             });
         }, result);
@@ -256,6 +257,7 @@ public final class WorkerNetwork {
     public synchronized void shutdown() {
         if (stopped) return;
         stopped = true;
+        sockets.shutdown();
         for (Connection connection : connections.values()) {
             connection.channel.eventLoop().execute(() -> connection.fail("Network runtime is closed"));
         }

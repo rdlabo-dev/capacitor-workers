@@ -101,3 +101,42 @@ describe("native network runtime ownership", () => {
     expect(native).toHaveBeenCalledTimes(2);
   });
 });
+
+it("owns TCP and HTTP handles independently and closes both transports", async () => {
+  const native = vi.fn<NativeCall>(async () => ({}));
+  const scope = createNetworkScope(native);
+  await scope.call(plugin, "socketOpen", { id: "tcp" });
+  await scope.call(plugin, "networkOpen", { id: "http" });
+  await expect(
+    scope.call(plugin, "networkRead", { id: "tcp" }),
+  ).rejects.toThrow("transport mismatch");
+  await expect(
+    scope.call(plugin, "socketRead", { id: "http" }),
+  ).rejects.toThrow("transport mismatch");
+  await scope.dispose();
+  expect(native).toHaveBeenCalledWith(plugin, "socketClose", { id: "tcp" });
+  expect(native).toHaveBeenCalledWith(plugin, "networkClose", { id: "http" });
+});
+
+it("closes late TCP registration after explicit cancellation without disposing the runtime", async () => {
+  let opened!: (value: unknown) => void;
+  const native = vi.fn<NativeCall>(async (_, method) =>
+    method === "socketOpen"
+      ? new Promise((resolve) => {
+          opened = resolve;
+        })
+      : undefined,
+  );
+  const scope = createNetworkScope(native);
+  const opening = scope.call(plugin, "socketOpen", { id: "late-tcp" });
+  const rejected = expect(opening).rejects.toThrow("closed before opening");
+  await scope.call(plugin, "socketClose", { id: "late-tcp" });
+  opened({});
+  await rejected;
+  expect(native.mock.calls.map((args) => args[1])).toEqual([
+    "socketOpen",
+    "socketClose",
+    "socketClose",
+  ]);
+  await scope.dispose();
+});

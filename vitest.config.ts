@@ -24,6 +24,7 @@ export default defineConfig({
       "src/compat/fetch/interop.spec.ts",
       "src/compat/fetch/native-network.spec.ts",
       "src/compat/fetch/scope.spec.ts",
+      "src/compat/net/sockets.spec.ts",
     ],
   },
 });
