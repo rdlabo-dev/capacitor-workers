@@ -207,7 +207,7 @@ app.listen(3000);
 export default httpServerHandler({ port: 3000 });
 ```
 
-Use the plugin shown above only in the Capacitor/browser build, never the Cloudflare build. It supplies limited Node HTTP compatibility and browser polyfills. `listen(3000)` registers an in-memory handler, not a listening TCP port. The plugin supports both Hono and Workers Express; framework code stays unchanged.
+Use the plugin shown above only in the Capacitor/browser build, never the Cloudflare build. It supplies Workers-compatible `node:http` and `node:net` adapters alongside browser polyfills; the [compatibility inventory](docs/node-compatibility-inventory.md) records the verified baseline and modules. `listen(3000)` registers an in-memory handler, not a listening TCP port. The plugin supports both Hono and Workers Express; framework code stays unchanged.
 
 ### TypeScript types
 
@@ -324,13 +324,13 @@ CI runs library/type checks, real local workerd contracts, Chromium/WebKit integ
 - `ctx.waitUntil()` tracks promises without delaying the response; `runtime.drain()` waits for them. Errors go to optional `onBackgroundError` (default: console). OS suspension/termination can stop pending work.
 - Fetch abort rejects the caller and propagates a signal. It cannot forcibly stop arbitrary application work. Cookies, redirect following, `Response.url` population, credentials/cache policies and CORS enforcement are not emulated for local calls.
 
-The [Node.js compatibility inventory](docs/node-compatibility-inventory.md) separates JS implementations, global adapters, native transports and architecture gaps. It is a planning inventory, not a support guarantee.
+The [Node.js compatibility inventory](docs/node-compatibility-inventory.md) separates JS implementations, global adapters, native transports and architecture gaps. Its implementation status distinguishes completed, verified units from planned or unverified modules.
 
 ### Framework and platform limits
 
-- Express request/response bodies are buffered. Streaming, file serving, compressed request bodies, WebSockets, arbitrary Node APIs and async context propagation are not guaranteed. The compatibility layer is not a general Node runtime.
+- Workers HTTP request/response streaming and native TCP are covered by shared contracts. File serving, WebSockets, other Node modules and async context propagation require their own compatibility work; the inventory records their status. The compatibility layer is not a general Node runtime.
 - `passThroughOnException`, WorkerEntrypoint/RPC and Service Worker format are unsupported. Workers-specific Request fields are covered only where stated in the compatibility inventory; `Request.cf` is preserved locally and is not populated with Cloudflare network metadata. Worker evaluation must not fetch its own local endpoints before installation.
-- CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. The package includes native HTTP transport and document integration sources (iOS SPM / Android Gradle). A plain browser uses browser Fetch; native document rendering requires Capacitor.
+- CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. The package includes native HTTP/TCP transport and document integration sources (iOS SPM / Android Gradle). A plain browser uses browser Fetch; native document rendering requires Capacitor.
 
 ### Security and network boundaries
 
