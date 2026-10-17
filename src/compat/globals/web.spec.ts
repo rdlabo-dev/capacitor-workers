@@ -115,3 +115,24 @@ it("preserves a later app timeout replacement and rejects another owner", () => 
     Object.defineProperty(constructor, "timeout", previous);
   }
 });
+
+it("rejects a new owner after the AbortSignal constructor is replaced", () => {
+  class Original {
+    static timeout = () => "original";
+  }
+  class Replacement {
+    static timeout = () => "replacement";
+  }
+  const originalTimeout = Original.timeout;
+  const replacementTimeout = Replacement.timeout;
+  const target = { AbortSignal: Original } as Record<string, unknown>;
+  const release = installWebGlobals(target);
+  target.AbortSignal = Replacement;
+  expect(() => installWebGlobals(target)).toThrow(
+    "AbortSignal constructor changed",
+  );
+  expect(Replacement.timeout).toBe(replacementTimeout);
+  release();
+  expect(target.AbortSignal).toBe(Replacement);
+  expect(Original.timeout).toBe(originalTimeout);
+});

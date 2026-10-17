@@ -16,6 +16,7 @@ const installations = new WeakMap<
   Target,
   {
     owners: number;
+    abortSignal: unknown;
     patches: Map<Name, Patch>;
     restoreSymbols: () => void;
     restoreAbort: () => void;
@@ -41,6 +42,10 @@ function restore(target: Target, patches: Map<Name, Patch>) {
 export function installWebGlobals(target: Target = globalThis) {
   let installation = installations.get(target);
   if (installation) {
+    if (target.AbortSignal !== installation.abortSignal)
+      throw new Error(
+        "Workers AbortSignal constructor changed during installation",
+      );
     for (const [name, patch] of installation.patches)
       if (!owns(target, name, patch.installed))
         throw new Error(`Workers global ${name} changed during installation`);
@@ -74,7 +79,13 @@ export function installWebGlobals(target: Target = globalThis) {
       restore(target, patches);
       throw error;
     }
-    installation = { owners: 1, patches, restoreSymbols, restoreAbort };
+    installation = {
+      owners: 1,
+      abortSignal: target.AbortSignal,
+      patches,
+      restoreSymbols,
+      restoreAbort,
+    };
     installations.set(target, installation);
   }
   let released = false;

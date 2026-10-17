@@ -45,7 +45,7 @@ HTTP rather than a Node-fetch proxy that would hide redirect/decompression
 behavior. Node HTTP intentionally preserves the pinned Workers behavior, including
 its joined Cookie header values and unsupported options.
 
-Local checks currently include 216 unit tests, 42 Chromium/WebKit runtime tests,
+Local checks currently include 217 unit tests, 42 Chromium/WebKit runtime tests,
 280 runtime checks per native platform, and 86 native network checks per platform
 (including valid TLS, untrusted certificates and hostname mismatches).
 These are candidate results, not a substitute for full coverage and final CI.
