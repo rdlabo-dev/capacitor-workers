@@ -1,22 +1,38 @@
-// node:path/posix and path/posix resolve here: the same bounded POSIX
-// profile as node:path.
-import { posix } from "../index.js";
+// node:path/posix and path/posix resolve here.
+import { posix, win32 } from "../internal-path.js";
 
-export const {
+const {
   basename,
-  delimiter,
   dirname,
   extname,
   format,
   isAbsolute,
   join,
+  matchesGlob,
   normalize,
   parse,
   relative,
   resolve,
-  sep,
   toNamespacedPath,
-  win32,
+  delimiter,
+  sep,
 } = posix;
-export { posix };
+export {
+  basename,
+  dirname,
+  extname,
+  format,
+  isAbsolute,
+  join,
+  matchesGlob,
+  normalize,
+  parse,
+  relative,
+  resolve,
+  toNamespacedPath,
+  delimiter,
+  posix,
+  sep,
+  win32,
+};
 export default posix;

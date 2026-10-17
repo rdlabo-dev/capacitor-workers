@@ -23,6 +23,8 @@ export function compatibilityAliases() {
     http: compatPath("http"),
     // Subpath aliases must precede their parents: object-form alias entries
     // also match an "<alias>/" prefix.
+    "node:path/win32": compatPath("path/win32"),
+    "path/win32": compatPath("path/win32"),
     "node:path/posix": compatPath("path/posix"),
     "path/posix": compatPath("path/posix"),
     "node:path": compatPath("path"),

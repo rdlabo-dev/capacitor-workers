@@ -21,17 +21,17 @@ for (const build of [
       expect(report.cases.every((result) => result.ok)).toBe(true);
       if (build !== "raw") {
         // node: and bare specifiers resolve to one profile per bundler.
-        expect(report.resolved).toEqual(Array(8).fill(true));
+        expect(report.resolved).toEqual(Array(11).fill(true));
+        expect(
+          report.node.direct
+            .flatMap((result) => result.cases)
+            .filter((c) => c.status !== "passed"),
+        ).toEqual([]);
         expect(
           report.node.direct.flatMap((result) =>
             result.cases.map((c) => c.status),
           ),
-        ).toEqual([
-          ...Array(8).fill("passed"),
-          "unsupported",
-          "unsupported",
-          ...Array(16).fill("passed"),
-        ]);
+        ).toEqual(Array(49).fill("passed"));
       }
     });
   }
@@ -58,12 +58,12 @@ for (const build of ["vite-node", "esbuild-node"]) {
           cases: { id: string; status: string }[];
         }[]
       ).flatMap((result) => result.cases.map((c) => c.status));
-      expect(statuses).toEqual([
-        ...Array(8).fill("passed"),
-        "unsupported",
-        "unsupported",
-        ...Array(16).fill("passed"),
-      ]);
+      expect(
+        (report.contracts as { cases: { status: string }[] }[])
+          .flatMap((r) => r.cases)
+          .filter((c) => c.status !== "passed"),
+      ).toEqual([]);
+      expect(statuses).toEqual(Array(49).fill("passed"));
     });
   }
 }

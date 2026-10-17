@@ -18,6 +18,11 @@ import {
   NodeStringDecoder,
 } from "../../../src/compat/string-decoder/index.spec";
 
+import {
+  nodeHttpContract,
+  NodeHttp,
+} from "../../../src/compat/http/index.spec";
+
 export type NodeProfile = "bundled" | "workers";
 
 export async function runNodeContracts(
@@ -30,5 +35,6 @@ export async function runNodeContracts(
     ),
     await runContract(new NodeQuerystring(), nodeQuerystringContract),
     await runContract(new NodeStringDecoder(), nodeStringDecoderContract),
+    await runContract(new NodeHttp(), nodeHttpContract),
   ];
 }

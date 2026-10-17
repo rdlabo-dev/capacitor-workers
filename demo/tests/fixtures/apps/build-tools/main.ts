@@ -9,6 +9,9 @@ import { runNodeContracts } from "../../../validation/node-modules";
 import nodePath from "node:path";
 import barePath from "path";
 import posixPath from "node:path/posix";
+import barePosixPath from "path/posix";
+import win32Path from "node:path/win32";
+import bareWin32Path from "path/win32";
 import { join as namedJoin } from "path";
 import * as nodeQs from "node:querystring";
 import nodeQsDefault from "node:querystring";
@@ -22,6 +25,9 @@ function resolved() {
     namedJoin === nodePath.join,
     nodePath.join("a", "b") === "a/b",
     posixPath === nodePath.posix,
+    barePosixPath === posixPath,
+    win32Path === nodePath.win32,
+    bareWin32Path === win32Path,
     nodeQs.parse === bareQs.parse,
     nodeQsDefault.stringify === bareQs.stringify,
     StringDecoder === bareStringDecoder.StringDecoder,

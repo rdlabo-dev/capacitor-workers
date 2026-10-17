@@ -24,7 +24,7 @@ function compatibilityPlugins(): PluginOption[] {
       name: "capacitor-workers",
       config: () => ({
         // Express and cloudflare:node must share one prebundled HTTP registry.
-        optimizeDeps: { include: ["cloudflare:node"] },
+        optimizeDeps: { include: ["cloudflare:node", "node:http", "http"] },
         resolve: {
           alias: compatibilityAliases(),
         },

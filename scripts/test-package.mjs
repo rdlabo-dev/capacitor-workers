@@ -11,6 +11,13 @@ const pack = JSON.parse(
     encoding: "utf8",
   }),
 )[0];
+for (const module of ["path", "querystring", "string-decoder"]) {
+  for (const name of ["LICENSE-3RD-PARTY.md", "LICENSE-APACHE"]) {
+    const notice = `dist/compat/${module}/${name}`;
+    if (!pack.files.some((file) => file.path === notice))
+      throw new Error(`Missing upstream license notice in tarball: ${notice}`);
+  }
+}
 await writeFile(
   join(temp, "package.json"),
   JSON.stringify({ name: "fresh-consumer", private: true, type: "module" }),
@@ -40,7 +47,7 @@ for (const entry of [
 }
 // Copy only module-owned test contracts, never the library implementation.
 // The consumer must still resolve the implementation from the packed package.
-for (const module of ["path", "querystring", "string-decoder"]) {
+for (const module of ["path", "querystring", "string-decoder", "http"]) {
   const directory = join("src", "compat", module);
   await mkdir(join(temp, directory), { recursive: true });
   await cp(
@@ -230,20 +237,11 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
   }
   const features = await page.evaluate(() => window.runFeatures());
   if (
-    features.flatMap((report) => report.cases).length !== 80 ||
+    features.flatMap((report) => report.cases).length !== 126 ||
     features.some(
       (report) =>
         report.errors.length ||
-        report.cases.some(
-          (test) =>
-            test.status !== "passed" &&
-            !(
-              report.feature === "node.path" &&
-              ["cwdRelative", "win32"].includes(test.id) &&
-              test.status === "unsupported" &&
-              test.reason
-            ),
-        ),
+        report.cases.some((test) => test.status !== "passed"),
     )
   )
     throw new Error(JSON.stringify(features));
@@ -355,7 +353,7 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
     ),
   );
   console.log(
-    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 76 passed, 4 explicit exclusions, preferences 2/2 passed (${temp})`,
+    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features ${features.flatMap((report) => report.cases).length} passed, 0 exclusions, preferences 2/2 passed (${temp})`,
   );
 } finally {
   await browser?.close();

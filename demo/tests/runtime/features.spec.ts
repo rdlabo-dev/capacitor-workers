@@ -6,30 +6,11 @@ test("one feature standard covers direct/isolated fetch, state and engine capabi
   await page.waitForFunction(() => typeof window.runFeatures === "function");
   const reports = await page.evaluate(() => window.runFeatures());
   expect(reports.map((report) => report.cases.length)).toEqual([
-    4, 4, 18, 2, 10, 8, 8, 10, 8, 8,
+    4, 4, 18, 2, 14, 11, 15, 9, 14, 11, 15, 9,
   ]);
   const cases = reports.flatMap((report) => report.cases);
-  // Declared exclusions must carry a reason; everything else must pass.
-  expect(cases.filter((test) => test.status === "unsupported")).toEqual([
-    {
-      id: "cwdRelative",
-      status: "unsupported",
-      reason: expect.any(String),
-    },
-    { id: "win32", status: "unsupported", reason: expect.any(String) },
-    {
-      id: "cwdRelative",
-      status: "unsupported",
-      reason: expect.any(String),
-    },
-    { id: "win32", status: "unsupported", reason: expect.any(String) },
-  ]);
   expect(reports.flatMap((report) => report.errors)).toEqual([]);
-  expect(
-    cases
-      .filter((test) => test.status !== "unsupported")
-      .every((test) => test.status === "passed"),
-  ).toBe(true);
+  expect(cases.filter((test) => test.status !== "passed")).toEqual([]);
 });
 
 test("KV survives a WebView document reload and remains namespace-isolated", async ({

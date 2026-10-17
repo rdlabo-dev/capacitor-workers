@@ -23,14 +23,15 @@ afterAll(async () => {
   await harness.close();
 });
 
-it("runs the bounded node module contracts against real workerd", async () => {
+it("runs the node module contracts against real workerd", async () => {
   const reports = (await (await harness.fetch("/")).json()) as ContractResult[];
   expect(reports.map((report) => report.feature)).toEqual([
     "node.path",
     "node.querystring",
     "node.string_decoder",
+    "node.http",
   ]);
-  expect(reports.map((report) => report.cases.length)).toEqual([10, 8, 8]);
+  expect(reports.map((report) => report.cases.length)).toEqual([14, 11, 15, 9]);
   for (const report of reports) assertContract(report);
   expect(
     reports

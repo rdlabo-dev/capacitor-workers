@@ -196,11 +196,7 @@ export async function runNativeExperiment() {
       for (const test of report.cases)
         results.push({
           name: `${report.environment}: ${report.feature}/${test.id}`,
-          ok:
-            test.status === "passed" ||
-            (report.feature === "node.path" &&
-              ["cwdRelative", "win32"].includes(test.id) &&
-              test.status === "unsupported"),
+          ok: test.status === "passed",
           excluded: test.status === "unsupported",
           error: test.reason,
         });
