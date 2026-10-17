@@ -39,7 +39,8 @@ final class SocketBridge: @unchecked Sendable {
         value.closed = true
         value.buffer = Data()
         value.opening?(.failure(error)); value.opening = nil
-        value.reading?(.failure(error)); value.reading = nil
+        // The pinned Workers transport reports peer reset as EOF to readers.
+        value.reading?(value.reset ? .success(["eof": true]) : .failure(error)); value.reading = nil
         value.writing?(.failure(error)); value.writing = nil
         value.watching?(value.reset ? .success([:]) : .failure(error)); value.watching = nil
         if value.cancelled { finishClose(value) } else { value.transport.cancel() }
@@ -128,8 +129,9 @@ final class SocketBridge: @unchecked Sendable {
     }
     func read(id: String, count: Int, completion: @escaping Completion) {
         queue.async {
-            guard let value = self.values[id], !value.closed, value.ready else { completion(.failure(Failure.closed)); return }
             guard count > 0, count <= 65536 else { completion(.failure(Failure.invalid)); return }
+            if let value = self.values[id], value.reset { completion(.success(["eof": true])); return }
+            guard let value = self.values[id], !value.closed, value.ready else { completion(.failure(Failure.closed)); return }
             guard value.reading == nil else { completion(.failure(Failure.busy)); return }
             value.reading = completion; value.readCount = count
             self.drain(value)

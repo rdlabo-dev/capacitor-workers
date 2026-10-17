@@ -471,7 +471,7 @@ export async function runNetNetworkContract(
   // The pinned workerd surfaces a paused reset as EOF, not an active read error.
   equal(errors.length, 0);
 
-  for (const terminal of ["fin", "reset"]) {
+  for (const terminal of ["fin", "reset", "reset-flowing"]) {
     const connection = implementation.createConnection({
       host: url.hostname,
       port: Number(url.port),
@@ -486,7 +486,7 @@ export async function runNetNetworkContract(
       connection.on("error", (error) => errors.push(error));
       connection.on("data", (chunk) => {
         received += chunk.toString();
-        connection.pause();
+        if (terminal !== "reset-flowing") connection.pause();
       });
       connection.once("close", () => {
         clearTimeout(timeout);
@@ -494,12 +494,15 @@ export async function runNetNetworkContract(
       });
       connection.once("connect", () =>
         connection.write(
-          `GET /tcp-data-${terminal} HTTP/1.1\r\nHost: ${url.host}\r\n\r\n`,
+          `GET /tcp-data-${terminal.replace("-flowing", "")} HTTP/1.1\r\nHost: ${url.host}\r\n\r\n`,
         ),
       );
     });
     equal(received, "received");
-    equal(errors.length, 0);
+    if (errors.length)
+      throw new Error(
+        `Paused after data ${terminal}: ${errors.map(String).join("; ")}`,
+      );
   }
 
   for (const path of ["/get", "/large"]) {

@@ -35,7 +35,12 @@ final class WorkerSockets {
             if (closed) return;
             closed=true;
             if (!ready) { ready=true; opening.reject(message); }
-            if (reading!=null) { WorkerNetwork.Result pending=reading; reading=null; pending.reject(message); }
+            if (reading!=null) {
+                WorkerNetwork.Result pending=reading; reading=null;
+                // The pinned Workers transport reports peer reset as EOF.
+                if(reset) { JSObject value=new JSObject(); value.put("eof",true); pending.resolve(value); }
+                else pending.reject(message);
+            }
             if(watching!=null) { WorkerNetwork.Result pending=watching; watching=null; if(reset) pending.resolve(null); else pending.reject(message); }
             chunks.clear();
             if(channel!=null) channel.close();
@@ -134,7 +139,8 @@ final class WorkerSockets {
     }
     void read(String id,int count,WorkerNetwork.Result result) {
         if(count<1 || count>65536) { result.reject("Invalid socket read size"); return; }
-        perform(id,result,connection -> {
+        perform(id,result,true,connection -> {
+            if(connection.reset) { JSObject value=new JSObject(); value.put("eof",true); result.resolve(value); return; }
             if(connection.reading!=null) { result.reject("Socket read already pending"); return; }
             connection.reading=result; connection.count=count; connection.drain();
         });
