@@ -19,8 +19,8 @@ The status column describes this repository. **Class A/B/C/D/U/S describes feasi
 | `node:path`                            | **Complete**                      | [Module contract](../src/compat/path/index.spec.ts): POSIX, win32, relative resolution and the actual Workers `matchesGlob` rejection. Accepted at `b1a58d1`; remote CI passed. |
 | `node:querystring`                     | **Complete**                      | [Module contract](../src/compat/querystring/index.spec.ts), including all seven exports. Accepted at `b1a58d1`; remote CI passed.                                               |
 | `node:string_decoder`                  | **Complete**                      | [Module contract](../src/compat/string-decoder/index.spec.ts), including constructor, prototype, encodings and public state. Accepted at `b1a58d1`; remote CI passed.           |
-| HTTP server / Cloudflare Node bridge   | **In progress**                   | Streaming Express-to-Fetch adaptation exists. This is not complete `node:http` support.                                                                                         |
-| Node global injection                  | **In progress**                   | Buffer/process injection exists; the full runtime-global behavior is unverified.                                                                                                |
+| HTTP server / Cloudflare Node bridge   | **In progress**                   | Public export/prototype audit, streaming server contracts and six real HTTP client contracts are implemented. Full-module acceptance review and CI remain pending.              |
+| Node global injection                  | **In progress**                   | Pre-evaluation Node globals, owned Web globals and native outbound Fetch are implemented and locally exercised. Full API-unit acceptance and CI remain pending.                 |
 | `node:async_hooks` / AsyncLocalStorage | **Not implemented**               | `AsyncResource = undefined` is a dependency fallback placeholder. Async context propagation is still under investigation, not declared impossible.                              |
 | Other module families                  | **Unverified or Not implemented** | See each row below. Other module families are not certified Complete.                                                                                                           |
 
@@ -35,6 +35,27 @@ The target is Workers semantics, including its unsupported operations. A Node AP
 Sources describe current Workers behavior. For executable follow-up, use a fixed baseline: compatibility date `2026-10-17`, no extra flags, installed workerd `1.20261012.1` and Wrangler `4.151.0`. The first-batch contracts below run against this configuration. Older compatibility dates and explicit enable/disable flags require separate profiles. The overview currently enables Node compatibility by default for dates from `2026-08-04`; do not assume every profile needs an added `nodejs_compat` flag.
 
 Classification is an engineering assessment from documented behavior and current code. Evidence for implemented profiles is recorded separately below. Unknown export details remain explicit follow-up items rather than being silently marked supported.
+
+### Current completion work (not certified)
+
+The development branch now includes owned Request/Response/Headers and
+structured-clone adapters, native byte transports, Workers Fetch policy and Node
+HTTP client/server behavior. The fixed-workerd comparison includes real loopback
+HTTP rather than a Node-fetch proxy that would hide redirect/decompression
+behavior. Node HTTP intentionally preserves the pinned Workers behavior, including
+its joined Cookie header values and unsupported options.
+
+Local checks currently include 214 unit tests, 42 Chromium/WebKit runtime tests,
+256 runtime checks per native platform, and 80 native network checks per platform.
+These are candidate results, not a substitute for full coverage and final CI.
+The latest HTTP option/symbol changes passed the 256-check native suite; repeat
+the network suite and packed-consumer gate on the final accepted revision.
+The reproducible network procedure is in [the test guide](../demo/tests/README.md#native-outbound-http-contracts).
+
+Remaining acceptance work includes the complete HTTP/Cloudflare bridge audit,
+TLS trust/hostname failure coverage, final native package validation, transport
+cost evidence, and the full runtime-global API-unit audit. No **In progress** row
+is promoted solely because the currently written tests pass.
 
 ## Classification
 

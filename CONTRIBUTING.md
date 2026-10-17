@@ -17,6 +17,19 @@ Pin the workerd version, compatibility date and flags. An operation unsupported
 by that Workers baseline must reproduce its actual rejection, no-op or stub
 behavior; it must not be omitted from testing.
 
+## Supported execution environments
+
+The current execution targets are Capacitor iOS and Android WebViews, in both
+direct and Dedicated Worker execution. Ordinary browsers, Electron and Tauri are
+future targets. This does not reduce the Workers API surface of a completed unit.
+
+Chromium/WebKit tests verify JavaScript behavior, public imports, build integration,
+global initialization and bridge protocols. Contracts requiring native network
+privileges run against workerd and real iOS/Android transports with the same
+expectations, in both execution modes. Browser mocks are not evidence of native
+transport compatibility. Every operation must have an explicit verification target;
+CORS, headers, cookies, redirects, streaming and cancellation must not be excluded.
+
 ## Acceptance gate
 
 A compatibility implementation is ready to merge only when all of these are true:

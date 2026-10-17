@@ -1,3 +1,4 @@
+import { runWebApis } from "../../../validation/web-apis";
 import { Capacitor } from "@capacitor/core";
 import { runFrameworkContract } from "./frameworks";
 
@@ -183,7 +184,9 @@ export async function runNativeExperiment() {
   let featureTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     const reports = await Promise.race([
-      window.runFeatures(),
+      Promise.all([window.runFeatures(), runWebApis()]).then((reports) =>
+        reports.flat(),
+      ),
       new Promise<never>((_, reject) => {
         featureTimer = setTimeout(
           () => reject(new Error("Feature verification timed out")),
@@ -241,6 +244,13 @@ export async function runNativeExperiment() {
         ).text(),
         "preference 🍷",
       );
+      const globals = await (await fetch("/api/node-globals")).json();
+      equal(globals.unqualified, [true, true]);
+      equal(globals.qualified, [true, true, true]);
+      equal(globals.computed, [true, true, true]);
+      equal(globals.dynamic, [true, true, true, true, true]);
+      equal(globals.processEnv, {});
+      results.push({ name: `node globals: ${mode}`, ok: true });
       results.push({ name: `preference: ${mode}`, ok: true });
     } catch (error) {
       results.push({

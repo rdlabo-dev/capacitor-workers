@@ -11,15 +11,24 @@ async function run(prefer: ExecutionPreference) {
     baseURL: "https://node.invalid/",
     prefer,
   });
+  let result;
   try {
     await runtime.ready;
-    return {
+    const payload = await (await fetch("/")).json();
+    result = {
       execution: runtime.execution,
-      contracts: await (await fetch("/")).json(),
+      contracts: payload.contracts,
+      globals: payload.globals,
     };
   } finally {
     runtime.dispose();
   }
+  return {
+    ...result,
+    cleanup: !(["Buffer", "process", "global"] as const).some((name) =>
+      Object.hasOwn(globalThis, name),
+    ),
+  };
 }
 declare global {
   interface Window {

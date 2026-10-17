@@ -18,6 +18,13 @@ for (const module of ["path", "querystring", "string-decoder"]) {
       throw new Error(`Missing upstream license notice in tarball: ${notice}`);
   }
 }
+for (const name of ["NOTICE", "LICENSE-APACHE", "LICENSE-MIT"]) {
+  const notice = `dist/compat/brotli/${name}`;
+  if (!pack.files.some((file) => file.path === notice))
+    throw new Error(
+      `Missing bundled codec license notice in tarball: ${notice}`,
+    );
+}
 await writeFile(
   join(temp, "package.json"),
   JSON.stringify({ name: "fresh-consumer", private: true, type: "module" }),
@@ -45,9 +52,25 @@ for (const entry of [
 ]) {
   await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
 }
-// Copy only module-owned test contracts, never the library implementation.
-// The consumer must still resolve the implementation from the packed package.
-for (const module of ["path", "querystring", "string-decoder", "http"]) {
+// Candidate Web API contracts use internal modules from the installed tarball.
+// Never copy library implementation sources from the checkout.
+await cp(
+  join(temp, "node_modules/@rdlabo/capacitor-workers/dist/compat"),
+  join(temp, "src/compat"),
+  { recursive: true },
+);
+// Copy module-owned contracts separately; these are not shipped.
+for (const module of [
+  "path",
+  "querystring",
+  "string-decoder",
+  "http",
+  "headers",
+  "request",
+  "response",
+  "immediate",
+  "structured-clone",
+]) {
   const directory = join("src", "compat", module);
   await mkdir(join(temp, directory), { recursive: true });
   await cp(
@@ -237,7 +260,7 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
   }
   const features = await page.evaluate(() => window.runFeatures());
   if (
-    features.flatMap((report) => report.cases).length !== 126 ||
+    features.flatMap((report) => report.cases).length !== 144 ||
     features.some(
       (report) =>
         report.errors.length ||

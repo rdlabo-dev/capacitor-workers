@@ -1,4 +1,13 @@
-import { IncomingMessage, ServerResponse, servers } from "../http/index.js";
+// Copyright (c) 2024-2026 Cloudflare, Inc.
+// Licensed under the Apache 2.0 license found in the LICENSE file or at:
+//     https://opensource.org/licenses/Apache-2.0
+// Adapted from workerd v1.20261012.1 cloudflare:node compatibility sources.
+import type { IncomingMessage, Server, ServerResponse } from "../http/index.js";
+import {
+  getHandler,
+  kSetIncomingBody,
+  type InboundSocket,
+} from "../http/registry.js";
 
 export interface ServerDescriptor {
   port?: number | null;
@@ -58,8 +67,10 @@ export async function handleAsNodeRequest(
   const port = validatePort(
     typeof descriptor === "number" ? descriptor : descriptor?.port,
   );
-  const server = servers.get(port);
-  if (!server)
+  const handler = getHandler(port);
+  const server = handler?.server as Server | undefined;
+  const createRequestResponse = handler?.createRequestResponse;
+  if (!server || !createRequestResponse)
     throw Object.assign(
       new Error(
         `Http server with port ${port} not found. This is likely a bug with your code. ` +
@@ -68,7 +79,14 @@ export async function handleAsNodeRequest(
       { code: "ERR_INVALID_ARG_VALUE" },
     );
   const url = new URL(request.url);
-  const req = new IncomingMessage();
+  const classes = createRequestResponse() as {
+    IncomingMessage: new () => IncomingMessage;
+    ServerResponse: new (
+      request: IncomingMessage,
+      options: { highWaterMark: number; rejectNonStandardBodyWrites: boolean },
+    ) => ServerResponse;
+  };
+  const req = new classes.IncomingMessage();
   req.url = url.pathname + url.search;
   req.method = request.method;
   req.headers = Object.fromEntries(request.headers);
@@ -83,11 +101,15 @@ export async function handleAsNodeRequest(
     req.headers["transfer-encoding"] = "chunked";
   req.socket.encrypted = url.protocol === "https:";
   req.socket.localPort = port;
-  req.rawHeaders = Object.entries(req.headers).flat();
+  req.rawHeaders = [...request.headers].flat();
   req.cloudflare = { env, ctx };
-  if ("cf" in request) req.cloudflare.cf = request.cf;
-  req.setBody(request.body);
-  const res = new ServerResponse(req);
+  if ("cf" in request)
+    req.cloudflare.cf = request.cf as Record<string, unknown> | undefined;
+  req[kSetIncomingBody](request.body);
+  const res = new classes.ServerResponse(req, {
+    highWaterMark: server.highWaterMark,
+    rejectNonStandardBodyWrites: server.rejectNonStandardBodyWrites,
+  });
   return new Promise<Response>((resolve, reject) => {
     res.once("error", reject);
     req.once("error", (error) => {
@@ -150,4 +172,44 @@ export async function handleAsNodeRequest(
       reject(error);
     }
   });
+}
+
+function portFromAuthority(authority: string | null | undefined): number {
+  const match =
+    typeof authority === "string" ? /:(\d+)$/.exec(authority) : null;
+  if (!match)
+    throw new Error(
+      `Failed to determine port for inbound socket from local address ${String(authority)}`,
+    );
+  return validatePort(Number(match[1]));
+}
+
+export async function handleAsNodeConnection(
+  socket: InboundSocket,
+  env?: unknown,
+  ctx?: unknown,
+): Promise<void> {
+  const port = portFromAuthority((await socket.opened).localAddress);
+  const handler = getHandler(port);
+  if (!handler?.connect)
+    throw Object.assign(
+      new Error(
+        `No net.Server is listening on port ${port}. Call server.listen(${port}) to accept ` +
+          `connections arriving on that port.`,
+      ),
+      { code: "ERR_INVALID_ARG_VALUE" },
+    );
+  await handler.connect(socket, env, ctx);
+}
+
+export function connectHandler() {
+  return {
+    connect(
+      socket: InboundSocket,
+      env?: unknown,
+      ctx?: unknown,
+    ): Promise<void> {
+      return handleAsNodeConnection(socket, env, ctx);
+    },
+  };
 }

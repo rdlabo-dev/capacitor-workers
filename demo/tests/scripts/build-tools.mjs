@@ -25,6 +25,20 @@ await viteBuild({
     },
   },
 });
+await viteBuild({
+  configFile: false,
+  base: "./",
+  root: resolve(root, "tests/fixtures/apps/build-tools"),
+  plugins: [vitePlugin()],
+  build: {
+    outDir: resolve(root, "artifacts/build-tools/vite-static-node"),
+    emptyOutDir: true,
+    target: "es2022",
+    rollupOptions: {
+      input: resolve(root, "tests/fixtures/apps/build-tools/static-node.html"),
+    },
+  },
+});
 {
   const outdir = resolve(root, "artifacts/build-tools/esbuild-node");
   await esbuild({

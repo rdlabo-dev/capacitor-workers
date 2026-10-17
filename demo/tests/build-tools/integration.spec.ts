@@ -31,11 +31,23 @@ for (const build of [
           report.node.direct.flatMap((result) =>
             result.cases.map((c) => c.status),
           ),
-        ).toEqual(Array(49).fill("passed"));
+        ).toEqual(Array(58).fill("passed"));
       }
     });
   }
 }
+test("vite static explicit Worker import is prepared before evaluation", async ({
+  page,
+}) => {
+  await page.goto("/vite-static-node/static-node.html");
+  await page.waitForFunction(
+    () => typeof window.runStaticNodeBuild === "function",
+  );
+  expect(await page.evaluate(() => window.runStaticNodeBuild())).toEqual({
+    evaluated: Array(5).fill(true),
+  });
+});
+
 // The node contract worker is the configured entry of these builds, so
 // prefer=worker runs the contracts inside the bundled Dedicated Worker and
 // prefer=direct runs them in-page; no Worker-entry transform is needed.
@@ -63,7 +75,13 @@ for (const build of ["vite-node", "esbuild-node"]) {
           .flatMap((r) => r.cases)
           .filter((c) => c.status !== "passed"),
       ).toEqual([]);
-      expect(statuses).toEqual(Array(49).fill("passed"));
+      expect(statuses).toEqual(Array(58).fill("passed"));
+      expect(report.globals.unqualified).toEqual([true, true]);
+      expect(report.globals.qualified).toEqual([true, true, true]);
+      expect(report.globals.computed).toEqual([true, true, true]);
+      expect(report.globals.dynamic).toEqual(Array(5).fill(true));
+      expect(report.globals.processEnv).toEqual({});
+      expect(report.cleanup).toBe(true);
     });
   }
 }

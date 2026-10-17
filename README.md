@@ -279,6 +279,19 @@ Cloudflare CLI configuration lives in `demo/cloudflare.config.ts`. From `demo/`,
 
 ### Native demo
 
+The native HTTP transport requires Xcode 26 / Swift 6.2 or newer and Java 21.
+For Android, add the following resource rules inside `android {}` in the application's
+`android/app/build.gradle` (already present in the demo):
+
+```groovy
+packaging.resources {
+    excludes += 'META-INF/INDEX.LIST'
+    merges += 'META-INF/io.netty.versions.properties'
+}
+```
+
+These combine Netty's dependency metadata; the library does not modify the application's Gradle configuration.
+
 Run the following from `demo/`, after building its web assets:
 
 ```sh

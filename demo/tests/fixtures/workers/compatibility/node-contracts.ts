@@ -1,10 +1,17 @@
 import { runNodeContracts } from "../../../validation/node-modules";
+import { nodeGlobals } from "./node-globals";
 
 // Runs the node contracts inside the configured Worker bundle so bundled
 // resolution and Dedicated Worker execution are covered without relying on
 // bundler-specific Worker entry transforms.
 export default {
   async fetch() {
-    return Response.json(await runNodeContracts("bundled"));
+    return Response.json({
+      contracts: await runNodeContracts("bundled"),
+      globals: {
+        ...nodeGlobals,
+        dynamic: await nodeGlobals.dynamic(),
+      },
+    });
   },
 };

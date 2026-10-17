@@ -173,3 +173,28 @@ Service Worker registration cleanup and native asset fallback on the current cli
 The packaged runner performs the same assertions in its `reinit` stage through
 the bundled `lifecycle.js` entry, so the CDP probe remains for the earlier
 overlay investigation only.
+
+## Native outbound HTTP contracts
+
+The raw byte transport and Workers Fetch policy run against the same loopback
+fixture in direct execution and a Dedicated Worker. Tests include redirects,
+compression, cookies, streaming, cancellation, main-frame reload and Worker
+termination. The public `capacitorWorkers()` entry is exercised in both realms.
+
+After building the library, prepare an independent packed consumer as above:
+
+```sh
+npm run test:native:package:prepare
+# Keep this server running in another terminal:
+npm run test:native:network:server
+# Run one platform at a time against the same consumer:
+npm run test:native:network -- ios <simulator-UUID>
+npm run test:native:network -- android <emulator-serial>
+```
+
+These commands replace only the temporary consumer's generated `dist`, sync the
+plugin, build, install and check all 80 results. They fail on missing or failed
+results. Build logs and reports are written under the consumer's
+`artifacts/network/`. Android uses `10.0.2.2:4201`; iOS uses `127.0.0.1:4201`.
+`ADB` and `ADB_SERVER_PORT` can select an alternate Android tool/server.
+The library does not start this test HTTP server.

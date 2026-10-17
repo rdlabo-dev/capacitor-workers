@@ -4,7 +4,7 @@ import { capacitorWorkersPlugin } from "@rdlabo/capacitor-workers/vite";
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
   plugins: [
-    capacitorWorkersPlugin({ worker: "../../workers/runtime/isolation.ts" }),
+    capacitorWorkersPlugin({ worker: "../../workers/runtime/node-globals.ts" }),
   ],
   // These frameworks are loaded by separate Worker fixtures during a run.
   // Prebundle both before testing so dependency discovery cannot reload a page.
