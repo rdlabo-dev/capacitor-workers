@@ -5,7 +5,6 @@ import {
   configuredPath,
   compatibilityAliases,
   workerEntry,
-  compatPath,
 } from "./build/shared.js";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import type { Plugin, PluginOption } from "vite";
@@ -13,6 +12,13 @@ import { normalizePath } from "vite";
 
 /** Add only to the Capacitor/browser build, never the Cloudflare build. */
 function compatibilityPlugins(): PluginOption[] {
+  // Overrides take bare module names only; both bare and "node:" imports of
+  // the same module resolve to the shared compat profile.
+  const overrides = Object.fromEntries(
+    Object.entries(compatibilityAliases()).filter(
+      ([specifier]) => !specifier.includes(":") && !specifier.includes("/"),
+    ),
+  );
   return [
     {
       name: "capacitor-workers",
@@ -24,7 +30,7 @@ function compatibilityPlugins(): PluginOption[] {
         },
       }),
     },
-    ...nodePolyfills({ overrides: { http: compatPath("http") } }),
+    ...nodePolyfills({ overrides }),
   ];
 }
 

@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { IncomingMessage, ServerResponse, servers } from "./http.js";
+import { IncomingMessage, ServerResponse, servers } from "../http/index.js";
 
 export function httpServerHandler({ port }: { port: number }) {
   return {

@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { runFrameworkContract } from "./frameworks";
 
-type Result = { name: string; ok: boolean; error?: string };
+type Result = { name: string; ok: boolean; error?: string; excluded?: boolean };
 const results: Result[] = [];
 function equal(actual: unknown, expected: unknown) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -191,13 +191,20 @@ export async function runNativeExperiment() {
         );
       }),
     ]);
-    for (const report of reports)
+    for (const report of reports) {
+      console.log("FEATURE_REPORT", JSON.stringify(report));
       for (const test of report.cases)
         results.push({
           name: `${report.environment}: ${report.feature}/${test.id}`,
-          ok: test.status === "passed",
+          ok:
+            test.status === "passed" ||
+            (report.feature === "node.path" &&
+              ["cwdRelative", "win32"].includes(test.id) &&
+              test.status === "unsupported"),
+          excluded: test.status === "unsupported",
           error: test.reason,
         });
+    }
   } catch (error) {
     results.push({
       name: "common feature verification",
@@ -259,7 +266,7 @@ export async function runNativeExperiment() {
   };
   document.body.innerHTML = "<h1></h1><pre></pre>";
   document.querySelector("h1")!.textContent =
-    `${results.every((r) => r.ok) ? "PASS" : "FAIL"} ${results.filter((r) => r.ok).length}/${results.length}`;
+    `${results.every((r) => r.ok) ? "PASS" : "FAIL"} ${results.filter((r) => r.ok && !r.excluded).length} passed, ${results.filter((r) => r.excluded).length} excluded`;
   document.querySelector("pre")!.textContent = JSON.stringify(report, null, 2);
   console.log("NATIVE_EXPERIMENT", JSON.stringify(report));
 }

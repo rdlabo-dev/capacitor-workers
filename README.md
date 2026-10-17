@@ -302,6 +302,8 @@ CI runs library/type checks, real local workerd contracts, Chromium/WebKit integ
 - `ctx.waitUntil()` tracks promises without delaying the response; `runtime.drain()` waits for them. Errors go to optional `onBackgroundError` (default: console). OS suspension/termination can stop pending work.
 - Fetch abort rejects the caller and propagates a signal. It cannot forcibly stop arbitrary application work. Cookies, redirect following, `Response.url` population, credentials/cache policies and CORS enforcement are not emulated for local calls.
 
+The [Node.js compatibility inventory](docs/node-compatibility-inventory.md) separates JS implementations, global adapters, native transports and architecture gaps. It is a planning inventory, not a support guarantee.
+
 ### Framework and platform limits
 
 - Express request/response bodies are buffered. Streaming, file serving, compressed request bodies, WebSockets, arbitrary Node APIs and async context propagation are not guaranteed. The compatibility layer is not a general Node runtime.

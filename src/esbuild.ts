@@ -12,7 +12,9 @@ import {
 } from "./build/shared.js";
 
 const require = createRequire(import.meta.url);
-const globals = fileURLToPath(new URL("./compat/globals.js", import.meta.url));
+const globals = fileURLToPath(
+  new URL("./compat/globals/index.js", import.meta.url),
+);
 function compatibilityPlugin(): Plugin {
   return {
     name: "capacitor-workers-compatibility",

@@ -220,11 +220,20 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
   }
   const features = await page.evaluate(() => window.runFeatures());
   if (
-    features.flatMap((report) => report.cases).length !== 28 ||
+    features.flatMap((report) => report.cases).length !== 80 ||
     features.some(
       (report) =>
         report.errors.length ||
-        report.cases.some((test) => test.status !== "passed"),
+        report.cases.some(
+          (test) =>
+            test.status !== "passed" &&
+            !(
+              report.feature === "node.path" &&
+              ["cwdRelative", "win32"].includes(test.id) &&
+              test.status === "unsupported" &&
+              test.reason
+            ),
+        ),
     )
   )
     throw new Error(JSON.stringify(features));
@@ -336,7 +345,7 @@ export default {root:'demo/tests/fixtures/apps/runtime',plugins:[capacitorWorker
     ),
   );
   console.log(
-    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 28/28, preferences 2/2 passed (${temp})`,
+    `Packed consumer: direct ${results.length}/26, isolated ${isolated.length}/22, common features 76 passed, 4 explicit exclusions, preferences 2/2 passed (${temp})`,
   );
 } finally {
   await browser?.close();
