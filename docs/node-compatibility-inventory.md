@@ -165,7 +165,7 @@ Dates/flags govern whether these are importable. Do not broaden a stub into a fu
 
 ## Existing implementation vs planned feasibility
 
-Each compatibility module owns a directory under `src/compat/<module>/`, with `index.ts` as its entry point. Subpaths and dependency declarations stay inside that directory (for example, `path/posix/index.ts` and `path/polyfill.d.ts`). TypeScript preserves this structure in `dist/compat/`; the shared build aliases resolve to the compiled entry points.
+Each compatibility module owns a directory under `src/compat/<module>/`, with `index.ts` as its entry point. Subpaths and dependency declarations stay inside that directory (for example, `path/posix/index.ts` and `path/polyfill.d.ts`). Each module also owns its contracts and test implementations in `tests/`; environment runners in `demo/tests/` execute those same contracts. Test code is excluded from the production compilation. TypeScript preserves the implementation structure in `dist/compat/`; the shared build aliases resolve to the compiled entry points.
 
 | Current code                                                      | Actual evidence / gap                                                                                                                                                                      |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

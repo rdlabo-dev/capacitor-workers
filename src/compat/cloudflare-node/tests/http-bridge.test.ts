@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { createServer } from "../../src/compat/http/index";
-import { httpServerHandler } from "../../src/compat/cloudflare-node/index";
+import { createServer } from "../../http/index";
+import { httpServerHandler } from "../index";
 
 it("rejects invalid asynchronous response headers instead of leaving fetch pending", async () => {
   const server = createServer((_request, response) => {

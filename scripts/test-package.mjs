@@ -38,6 +38,12 @@ for (const entry of [
 ]) {
   await cp(join("demo", entry), join(temp, "demo", entry), { recursive: true });
 }
+// Copy only module-owned test contracts, never the library implementation.
+// The consumer must still resolve the implementation from the packed package.
+for (const module of ["path", "querystring", "string-decoder"]) {
+  const directory = join("src", "compat", module, "tests");
+  await cp(directory, join(temp, directory), { recursive: true });
+}
 await writeFile(
   join(temp, "vite.config.mjs"),
   `import { capacitorWorkersPlugin } from '@rdlabo/capacitor-workers/vite';
