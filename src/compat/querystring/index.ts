@@ -6,6 +6,8 @@
 // no escape/unescape exports at all. Semantics below follow the observed
 // Node/Workers behavior and are pinned by the shared contract cases.
 
+import { Buffer } from "node:buffer";
+
 export interface ParseOptions {
   maxKeys?: number;
   decodeURIComponent?: (input: string) => string;
@@ -30,6 +32,8 @@ function isHexDigit(code: number) {
 // treats any following code unit as the low half of a surrogate pair and
 // rejects a trailing surrogate with URIError; that behavior is reproduced.
 export function escape(input: unknown): string {
+  if (typeof input === "symbol")
+    throw new TypeError("Cannot convert a Symbol value to a string");
   const s = String(input);
   let out = "";
   for (let i = 0; i < s.length; i++) {
@@ -64,41 +68,34 @@ export function escape(input: unknown): string {
   return out;
 }
 
-// Decodes %XX runs through UTF-8 while copying every other character
-// verbatim (literal surrogates are preserved, matching Node). Malformed
-// escapes stay literal; decodeSpaces maps "+" to " " for parse.
-export function unescape(input: unknown, decodeSpaces = false): string {
-  const s = String(input);
-  let out = "";
-  let literal = "";
+// Workers first tries URI decoding. On malformed input it decodes bytes,
+// including the low byte of unescaped UTF-16 code units.
+export function unescapeBuffer(input: string, decodeSpaces = false): Buffer {
   const bytes: number[] = [];
-  const flushBytes = () => {
-    if (bytes.length) {
-      out += utf8.decode(new Uint8Array(bytes));
-      bytes.length = 0;
-    }
-  };
-  for (let i = 0; i < s.length; i++) {
-    const code = s.charCodeAt(i);
+  for (let i = 0; i < input.length; i++) {
+    const code = input.charCodeAt(i);
     if (
-      code === 37 && // %
-      i + 2 < s.length &&
-      isHexDigit(s.charCodeAt(i + 1)) &&
-      isHexDigit(s.charCodeAt(i + 2))
+      code === 37 &&
+      i + 2 < input.length &&
+      isHexDigit(input.charCodeAt(i + 1)) &&
+      isHexDigit(input.charCodeAt(i + 2))
     ) {
-      if (literal) {
-        out += literal;
-        literal = "";
-      }
-      bytes.push(parseInt(s.slice(i + 1, i + 3), 16));
+      bytes.push(parseInt(input.slice(i + 1, i + 3), 16));
       i += 2;
-    } else {
-      flushBytes();
-      literal += code === 43 && decodeSpaces ? " " : s[i]; // +
-    }
+    } else bytes.push(code === 43 && decodeSpaces ? 32 : code & 255);
   }
-  flushBytes();
-  return out + literal;
+  return Buffer.from(bytes);
+}
+
+export function unescape(input: unknown, decodeSpaces = false): string {
+  if (typeof input === "symbol")
+    throw new TypeError("Cannot convert a Symbol value to a string");
+  const s = String(input);
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return utf8.decode(unescapeBuffer(s, decodeSpaces));
+  }
 }
 
 type QueryObject = Record<string, string | string[]>;
@@ -127,7 +124,10 @@ export function parse(
   const maxKeys =
     options && typeof options.maxKeys === "number" ? options.maxKeys : 1000;
   const pairs = input.split(separator);
-  const count = maxKeys > 0 ? Math.min(maxKeys, pairs.length) : pairs.length;
+  const count =
+    maxKeys > 0 && Number.isInteger(maxKeys)
+      ? Math.min(maxKeys, pairs.length)
+      : pairs.length;
   for (let i = 0; i < count; i++) {
     const pair = pairs[i];
     if (pair.length === 0) continue;
@@ -142,7 +142,7 @@ export function parse(
           /* Workers falls back to its forgiving decoder. */
         }
       }
-      return unescape(raw, true);
+      return unescape(raw.replace(/\+/g, "%20"), true);
     };
     const key = decodePart(rawKey);
     const value = decodePart(rawValue);
@@ -174,7 +174,10 @@ export function stringify(
 ): string {
   const separator = sep === undefined || sep === null ? "&" : String(sep);
   const equals = eq === undefined || eq === null ? "=" : String(eq);
-  const encoder = options?.encodeURIComponent ?? escape;
+  const encoder =
+    typeof options?.encodeURIComponent === "function"
+      ? options.encodeURIComponent
+      : escape;
   if (input === null || typeof input !== "object") return "";
   const pairs: string[] = [];
   for (const key of Object.keys(input)) {
@@ -197,4 +200,5 @@ export default {
   parse,
   stringify,
   unescape,
+  unescapeBuffer,
 };

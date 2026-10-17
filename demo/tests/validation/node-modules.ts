@@ -4,15 +4,19 @@ import {
   runContract,
   type ContractResult,
 } from "@rdlabo/capacitor-workers/testing";
-import { nodePathContract } from "../../../src/compat/path/tests/contract";
 import {
+  nodePathContract,
   BundledPath,
   WorkersPath,
-} from "../../../src/compat/path/tests/implementation";
-import { nodeQuerystringContract } from "../../../src/compat/querystring/tests/contract";
-import { NodeQuerystring } from "../../../src/compat/querystring/tests/implementation";
-import { nodeStringDecoderContract } from "../../../src/compat/string-decoder/tests/contract";
-import { NodeStringDecoder } from "../../../src/compat/string-decoder/tests/implementation";
+} from "../../../src/compat/path/index.spec";
+import {
+  nodeQuerystringContract,
+  NodeQuerystring,
+} from "../../../src/compat/querystring/index.spec";
+import {
+  nodeStringDecoderContract,
+  NodeStringDecoder,
+} from "../../../src/compat/string-decoder/index.spec";
 
 export type NodeProfile = "bundled" | "workers";
 

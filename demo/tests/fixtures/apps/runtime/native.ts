@@ -140,7 +140,7 @@ export async function runNativeExperiment() {
       results.push({ name, ok: false, error: String(error) });
     } finally {
       clearTimeout(timer);
-      runtime?.dispose();
+      await runtime?.dispose();
     }
   }
   for (const framework of ["hono", "express"] as const) {
@@ -177,7 +177,7 @@ export async function runNativeExperiment() {
       });
     } finally {
       clearTimeout(timer);
-      runtime?.dispose();
+      await runtime?.dispose();
     }
   }
   let featureTimer: ReturnType<typeof setTimeout> | undefined;
@@ -254,7 +254,7 @@ export async function runNativeExperiment() {
       });
     } finally {
       clearTimeout(timer);
-      runtime.dispose();
+      await runtime.dispose();
     }
   }
   const report = {
@@ -269,4 +269,12 @@ export async function runNativeExperiment() {
     `${results.every((r) => r.ok) ? "PASS" : "FAIL"} ${results.filter((r) => r.ok && !r.excluded).length} passed, ${results.filter((r) => r.excluded).length} excluded`;
   document.querySelector("pre")!.textContent = JSON.stringify(report, null, 2);
   console.log("NATIVE_EXPERIMENT", JSON.stringify(report));
+  console.log(
+    "NATIVE_SUMMARY",
+    JSON.stringify({
+      passed: results.filter((r) => r.ok && !r.excluded).length,
+      excluded: results.filter((r) => r.excluded).length,
+      failures: results.filter((r) => !r.ok),
+    }),
+  );
 }

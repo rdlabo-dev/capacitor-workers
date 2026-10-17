@@ -41,8 +41,12 @@ for (const entry of [
 // Copy only module-owned test contracts, never the library implementation.
 // The consumer must still resolve the implementation from the packed package.
 for (const module of ["path", "querystring", "string-decoder"]) {
-  const directory = join("src", "compat", module, "tests");
-  await cp(directory, join(temp, directory), { recursive: true });
+  const directory = join("src", "compat", module);
+  await mkdir(join(temp, directory), { recursive: true });
+  await cp(
+    join(directory, "index.spec.ts"),
+    join(temp, directory, "index.spec.ts"),
+  );
 }
 await writeFile(
   join(temp, "vite.config.mjs"),

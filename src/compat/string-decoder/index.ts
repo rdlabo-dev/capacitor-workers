@@ -21,24 +21,35 @@ function toBuffer(input: Exclude<StringDecoderInput, string>) {
 
 export class StringDecoder {
   readonly #inner: UpstreamStringDecoder;
+  readonly #base64url: boolean;
 
   constructor(encoding?: string) {
-    this.#inner = new UpstreamStringDecoder(encoding);
+    this.#base64url =
+      typeof encoding === "string" && encoding.toLowerCase() === "base64url";
+    this.#inner = new UpstreamStringDecoder(
+      this.#base64url ? "base64" : encoding,
+    );
   }
 
   get encoding() {
-    return this.#inner.encoding;
+    return this.#base64url ? "base64url" : this.#inner.encoding;
+  }
+
+  #output(value: string): string {
+    return this.#base64url
+      ? value.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+      : value;
   }
 
   write(buffer: StringDecoderInput): string {
     return typeof buffer === "string"
       ? buffer
-      : this.#inner.write(toBuffer(buffer));
+      : this.#output(this.#inner.write(toBuffer(buffer)));
   }
 
   end(buffer?: StringDecoderInput): string {
     const prefix = buffer === undefined ? "" : this.write(buffer);
-    return prefix + this.#inner.end();
+    return prefix + this.#output(this.#inner.end());
   }
 }
 

@@ -1,6 +1,10 @@
 import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
-    include: ["tests/unit/**/*.test.ts", "src/compat/**/tests/**/*.test.ts"],
+    // Node module contract specs run via demo tests in workerd and WebViews.
+    include: [
+      "tests/unit/**/*.test.ts",
+      "src/compat/cloudflare-node/index.spec.ts",
+    ],
   },
 });

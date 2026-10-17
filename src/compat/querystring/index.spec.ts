@@ -1,4 +1,8 @@
-import { defineFeature } from "@rdlabo/capacitor-workers/features";
+import * as querystring from "node:querystring";
+import {
+  defineFeature,
+  FeatureImplementation,
+} from "@rdlabo/capacitor-workers/features";
 import type { ContractSuite } from "@rdlabo/capacitor-workers/testing";
 
 /** Bounded node:querystring profile. */
@@ -21,7 +25,8 @@ export interface NodeQuerystringApi {
   decode: NodeQuerystringApi["parse"];
   encode: NodeQuerystringApi["stringify"];
   escape(input: unknown): string;
-  unescape(input: unknown): string;
+  unescape(input: unknown, decodeSpaces?: boolean): string;
+  unescapeBuffer(input: string, decodeSpaces?: boolean): Uint8Array;
 }
 
 function equal(actual: unknown, expected: unknown) {
@@ -67,6 +72,11 @@ export const nodeQuerystringContract: ContractSuite<
       equal(api.parse(""), {});
     },
     parseLimits(api) {
+      equal(api.parse("a=1&b=2&c=3", "&", "=", { maxKeys: 1.5 }), {
+        a: "1",
+        b: "2",
+        c: "3",
+      });
       // Duplicate pairs count against maxKeys; empty pairs consume the slot.
       equal(api.parse("a=1&a=2&b=3", null, null, { maxKeys: 2 }), {
         a: ["1", "2"],
@@ -92,6 +102,16 @@ export const nodeQuerystringContract: ContractSuite<
       equal(api.parse("%F0%9F%8D%B7=wine"), { "🍷": "wine" });
     },
     parseMalformed(api) {
+      for (const [value, expected] of [
+        ["é%FF", "��"],
+        ["🍷%FF", "<w�"],
+        ["%C3é", "��"],
+        ["%FFé", "��"],
+      ]) {
+        equal(api.parse(`x=${value}`), { x: expected });
+        equal(api.unescape(value), expected);
+      }
+      equal(api.parse("x=\uD800"), { x: "\uD800" });
       // Malformed escapes stay literal or decode to U+FFFD; never throw.
       equal(api.parse("a=%E0%A4%A&b=%ZZ&c=%41"), {
         a: "�%A",
@@ -128,11 +148,22 @@ export const nodeQuerystringContract: ContractSuite<
       equal(api.unescape("%F0%9F%8D%B7%20%41%42"), "🍷 AB");
       equal(api.unescape("a+b"), "a+b");
       equal(api.unescape("a%20b"), "a b");
+      equal(api.unescape("a+b", true), "a+b");
+      equal([...api.unescapeBuffer("é%FF+%41", true)], [233, 255, 32, 65]);
+      equal([...api.unescapeBuffer("%ZZ+", false)], [37, 90, 90, 43]);
+      throws(() => api.escape(Symbol("s")), /TypeError/);
+      throws(() => api.unescape(Symbol("s")), /TypeError/);
     },
     customCodecs(api) {
       equal(api.parse("x=%E0%A4%A", null, null, { decodeURIComponent }), {
         x: "�%A",
       });
+      equal(
+        api.stringify({ a: 1 }, undefined, undefined, {
+          encodeURIComponent: 123 as unknown as (input: string) => string,
+        }),
+        "a=1",
+      );
       const seen: string[] = [];
       equal(
         api.parse("a+b=c+d", null, null, {
@@ -157,3 +188,26 @@ export const nodeQuerystringContract: ContractSuite<
     },
   },
 };
+
+const supported = { status: "supported" } as const;
+
+export class NodeQuerystring extends FeatureImplementation<
+  typeof nodeQuerystringFeature
+> {
+  constructor() {
+    super(nodeQuerystringFeature, {
+      parseDuplicates: supported,
+      parseLimits: supported,
+      parseSeparators: supported,
+      parseMalformed: supported,
+      stringifyValues: supported,
+      escapeUnescape: supported,
+      customCodecs: supported,
+      aliases: supported,
+    });
+  }
+  create() {
+    // workerd exposes unescapeBuffer, although @types/node omits it.
+    return querystring as unknown as NodeQuerystringApi;
+  }
+}
