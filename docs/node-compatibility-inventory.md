@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-**`node:path`, `node:querystring`, and `node:string_decoder` are Complete at commit `b1a58d1`.** Their local contracts, native verification, manager/independent reviews and [remote CI](https://github.com/rdlabo-dev/capacitor-workers/actions/runs/38999137150) have passed. HTTP and runtime globals still have implementation work; uncommitted changes are not covered by this certification. See the [merge and release acceptance gate](../CONTRIBUTING.md#acceptance-gate).
+**`node:path`, `node:querystring`, and `node:string_decoder` are Complete at commit `b1a58d1`.** Their local contracts, native verification, manager/independent reviews and [remote CI](https://github.com/rdlabo-dev/capacitor-workers/actions/runs/38999137150) have passed. Node/Web global installation and native Fetch transport are **Complete at `13261ce`** for the pinned profile below: manager/independent reviews and [CI passed](https://github.com/rdlabo-dev/capacitor-workers/actions/runs/39007518228). HTTP / Cloudflare Node bridge remains **In progress** because its TCP APIs require the unimplemented `node:net` dependency. See the [merge and release acceptance gate](../CONTRIBUTING.md#acceptance-gate).
 
 The status column describes this repository. **Class A/B/C/D/U/S describes feasibility only.** Existing PoC implementations are completion work, not release-ready exceptions.
 
@@ -14,19 +14,19 @@ The status column describes this repository. **Class A/B/C/D/U/S describes feasi
 | **Not implemented** | No implementation of the required behavior exists. A placeholder or empty export is not an implementation.                                              |
 | **Out of scope**    | Not a local Node compatibility feature.                                                                                                                 |
 
-| Module / feature                       | Current status                    | Implemented scope and remaining work                                                                                                                                            |
-| -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `node:path`                            | **Complete**                      | [Module contract](../src/compat/path/index.spec.ts): POSIX, win32, relative resolution and the actual Workers `matchesGlob` rejection. Accepted at `b1a58d1`; remote CI passed. |
-| `node:querystring`                     | **Complete**                      | [Module contract](../src/compat/querystring/index.spec.ts), including all seven exports. Accepted at `b1a58d1`; remote CI passed.                                               |
-| `node:string_decoder`                  | **Complete**                      | [Module contract](../src/compat/string-decoder/index.spec.ts), including constructor, prototype, encodings and public state. Accepted at `b1a58d1`; remote CI passed.           |
-| HTTP server / Cloudflare Node bridge   | **In progress**                   | Public export/prototype audit, streaming server contracts and six real HTTP client contracts are implemented. Full-module acceptance review and CI remain pending.              |
-| Node global injection                  | **In progress**                   | Pre-evaluation Node globals, owned Web globals and native outbound Fetch are implemented and locally exercised. Full API-unit acceptance and CI remain pending.                 |
-| `node:async_hooks` / AsyncLocalStorage | **Not implemented**               | `AsyncResource = undefined` is a dependency fallback placeholder. Async context propagation is still under investigation, not declared impossible.                              |
-| Other module families                  | **Unverified or Not implemented** | See each row below. Other module families are not certified Complete.                                                                                                           |
+| Module / feature                       | Current status                    | Implemented scope and remaining work                                                                                                                                                                          |
+| -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node:path`                            | **Complete**                      | [Module contract](../src/compat/path/index.spec.ts): POSIX, win32, relative resolution and the actual Workers `matchesGlob` rejection. Accepted at `b1a58d1`; remote CI passed.                               |
+| `node:querystring`                     | **Complete**                      | [Module contract](../src/compat/querystring/index.spec.ts), including all seven exports. Accepted at `b1a58d1`; remote CI passed.                                                                             |
+| `node:string_decoder`                  | **Complete**                      | [Module contract](../src/compat/string-decoder/index.spec.ts), including constructor, prototype, encodings and public state. Accepted at `b1a58d1`; remote CI passed.                                         |
+| HTTP server / Cloudflare Node bridge   | **In progress**                   | Public export/prototype audit, streaming server contracts and six real HTTP client contracts are implemented. HTTP reviews and CI passed; Cloudflare TCP success-path acceptance remains blocked by node:net. |
+| Node global injection                  | **Complete**                      | Pre-evaluation Node globals, owned Web globals and native Fetch passed shared/native contracts, packed-consumer gates, reviews and CI at 13261ce. Module-scope extensions require configured/lazy loading.    |
+| `node:async_hooks` / AsyncLocalStorage | **Not implemented**               | `AsyncResource = undefined` is a dependency fallback placeholder. Async context propagation is still under investigation, not declared impossible.                                                            |
+| Other module families                  | **Unverified or Not implemented** | See each row below. Other module families are not certified Complete.                                                                                                                                         |
 
 ## Scope and evidence
 
-Inventory date: 2026-10-17. Inventory starting point: `b58b543` (PR #16). The initial inventory used `2f10c95`; the first three module certifications now reference `b1a58d1`. Later candidate evidence below is explicitly distinguished from that accepted revision.
+Inventory date: 2026-10-17. Inventory starting point: `b58b543` (PR #16). The initial inventory used `2f10c95`; the first three module certifications now reference `b1a58d1`. The global/transport acceptance below references `13261ce`; native suites exercise the implementation saved in `7366156`, with the subsequent constructor-ownership guard verified by unit tests, browser integration and CI.
 This inventory separates implementation feasibility from verified support. Only the bounded profiles in [First batch](#first-batch-implementation-evidence-and-remaining-work) have executable compatibility evidence.
 It covers every category and non-functional stub in the [Workers Node.js overview](https://developers.cloudflare.com/workers/runtime-apis/nodejs/), splitting mixed categories into API families below. It is not an exhaustive export/signature manifest of Node.js itself.
 
@@ -36,7 +36,7 @@ Sources describe current Workers behavior. For executable follow-up, use a fixed
 
 Classification is an engineering assessment from documented behavior and current code. Evidence for implemented profiles is recorded separately below. Unknown export details remain explicit follow-up items rather than being silently marked supported.
 
-### Current completion work (not certified)
+### Global and transport acceptance; remaining bridge work
 
 The development branch now includes owned Request/Response/Headers and
 structured-clone adapters, native byte transports, Workers Fetch policy and Node
@@ -48,18 +48,17 @@ its joined Cookie header values and unsupported options.
 Local checks currently include 217 unit tests, 42 Chromium/WebKit runtime tests,
 280 runtime checks per native platform, and 86 native network checks per platform
 (including valid TLS, untrusted certificates and hostname mismatches).
-These are candidate results, not a substitute for full coverage and final CI.
+Manager and independent acceptance reviews passed, followed by the complete remote CI run at `13261ce`.
 Encoding and Abort contracts now run against pinned workerd and both WebViews.
 The AbortSignal timeout conversion difference is adapted without replacing native
-signal branding. Final packed-consumer verification and CI are still pending.
+signal branding. Both platforms passed the fresh npm-tarball Hono and Express acceptance suites, including background/relaunch/update/reinitialization.
 The reproducible network procedure is in [the test guide](../demo/tests/README.md#native-outbound-http-contracts).
 
 Remaining acceptance work includes the Cloudflare TCP bridge success path:
 `handleAsNodeConnection`/`connectHandler` require a real `node:net.Server` to
 register a listener, but that module is not implemented. Direct registry
 injection does not satisfy this requirement. Adding only a partial net module
-would violate the completion policy. Final native package validation, transport
-cost evidence, runtime-global acceptance review and final CI also remain.
+would violate the completion policy. The bridge remains In progress until a complete compatible dependency can be used.
 
 Worker modules that use Workers Web API extensions at module scope must use the
 configured plugin entry (or a lazy `loadDirect` source); static imports execute
@@ -89,7 +88,7 @@ The [official overview](https://developers.cloudflare.com/workers/runtime-apis/n
 | --------------------- | -------------------- | ---------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Unverified            | Assertion testing    | `assert`, `assert/strict`, equality, throws/rejects                                | A                          | JS comparison and exception handling. Deep comparison involving engine-only inspection is U; test cross-realm values and error shapes.                                                               |
 | Unverified            | Buffer               | `Buffer.from/alloc/concat`, encoding, reads/writes, views                          | A                          | Typed arrays and JS codecs; test shared backing memory and byte offsets.                                                                                                                             |
-| **In progress**       | Buffer globals       | unqualified `Buffer`                                                               | B                          | Inject before application/dependency evaluation; imports and global must use the same implementation.                                                                                                |
+| **Complete**          | Buffer globals       | unqualified `Buffer`                                                               | B                          | Inject before application/dependency evaluation; imports and global must use the same implementation.                                                                                                |
 | Unverified            | Events               | `EventEmitter`, `once`, `on`, listener bookkeeping                                 | A                          | Preserve ordering, error events, cancellation and iterator cleanup.                                                                                                                                  |
 | Not implemented       | Events + context     | `EventEmitterAsyncResource` where exposed                                          | U                          | Depends on the async context decision; do not claim parity from EventEmitter alone.                                                                                                                  |
 | **Complete**          | Path                 | POSIX and win32 operations, relative resolution and baseline matchesGlob rejection | A                          | Full module candidate verified locally; remote CI passed at `b1a58d1`. See the [contract](../src/compat/path/index.spec.ts).                                                                         |
@@ -135,8 +134,8 @@ The [official overview](https://developers.cloudflare.com/workers/runtime-apis/n
 
 | Implementation status | Category          | API family                                                        | Class                                                | Boundary / remaining check                                                                                                                                                                                                               |
 | --------------------- | ----------------- | ----------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **In progress**       | Globals           | global alias, Buffer, process                                     | B                                                    | Prefer build injection or dedicated runtime globals. `window` is not present in a Dedicated Worker.                                                                                                                                      |
-| **In progress**       | Globals           | fetch, Request/Response/Headers, encoding, abort, structuredClone | A/B/U                                                | Reuse platform objects where compatible; record Workers extensions, forbidden mutation and cross-realm behavior separately. Node inventory does not certify all Workers Web APIs.                                                        |
+| **Complete**          | Globals           | global alias, Buffer, process                                     | B                                                    | Prefer build injection or dedicated runtime globals. `window` is not present in a Dedicated Worker.                                                                                                                                      |
+| **Complete**          | Globals           | fetch, Request/Response/Headers, encoding, abort, structuredClone | A/B/U                                                | Reuse platform objects where compatible; record Workers extensions, forbidden mutation and cross-realm behavior separately. Node inventory does not certify all Workers Web APIs.                                                        |
 | Unverified            | Web Crypto        | crypto, SubtleCrypto                                              | A/U                                                  | See crypto table. Standard object availability is not algorithm parity.                                                                                                                                                                  |
 | Unverified            | Web Streams       | Readable/Writable/TransformStream, readers, controllers           | A/U                                                  | Native Web APIs or JS polyfills; BYOB, transfer and host-brand interoperability need tests.                                                                                                                                              |
 | Unverified            | Process           | env, platform/features/version-like values                        | A+B                                                  | Virtual runtime state, including value coercion and named-import identity. Build-machine env and server secrets must not be copied automatically.                                                                                        |
@@ -175,28 +174,28 @@ See [Diagnostics Channel](https://developers.cloudflare.com/workers/runtime-apis
 
 ## Inventory: filesystem and network
 
-| Implementation status | Category               | API family                                                                              | Class                                                | Boundary / remaining check                                                                                                                                                                                                       |
-| --------------------- | ---------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Not implemented       | FS                     | read/write/open/close, metadata, directories, links, sync/callback/promises, FileHandle | A candidate                                          | In-memory virtual FS; inspect Workers-supported operations and error codes, file descriptor lifetime and request isolation. No device Filesystem plugin inherently required.                                                     |
-| Not implemented       | FS                     | `/bundle` files                                                                         | A + build                                            | Package read-only module bytes/metadata before startup. Lazy async loading cannot transparently satisfy an immediate sync read.                                                                                                  |
-| Not implemented       | FS                     | `/tmp`, `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`                            | A                                                    | Virtual devices and secure random source. Match Workers' lifetime and permission rules; do not introduce persistence.                                                                                                            |
-| Not implemented       | FS                     | watch, permissions/ownership and other host-like operations                             | U/S                                                  | Establish which operations Workers implements, ignores or rejects. Never infer mobile filesystem behavior from API names.                                                                                                        |
-| **In progress**       | HTTP receiving         | Server, IncomingMessage, ServerResponse, createServer, listen/close                     | A                                                    | Fetch-handler adaptation with an in-memory server registry. No network listener.                                                                                                                                                 |
-| **In progress**       | Cloudflare Node bridge | httpServerHandler, handleAsNodeRequest                                                  | A                                                    | Adjacent required integration; preserve registry identity across bundles and dispatch context.                                                                                                                                   |
-| Unverified            | HTTP/HTTPS sending     | request/get, ClientRequest, response stream, abort                                      | A over a transport                                   | Node-shaped JS facade. Browser fetch covers only permitted traffic.                                                                                                                                                              |
-| Not implemented       | HTTP/HTTPS transport   | unrestricted cross-origin responses, controlled cookies/headers, redirects              | C for required behavior unavailable to WebView fetch | Native HTTP bridge for the affected operations. Audit Workers restrictions first; no need to implement options Workers itself rejects. Existing CapacitorHttp is a candidate, not verified coverage of streaming or all headers. |
-| Not implemented       | DNS                    | resolve4/6 and other documented resolve variants, promises                              | A over DoH; C if browser transport blocks it         | Implement Workers' DNS-over-HTTPS route, subject to actual CORS/connectivity. No OS resolver is inherently necessary.                                                                                                            |
-| Not implemented       | DNS                    | lookup, lookupService, generic resolve                                                  | S per current docs                                   | Preserve documented failure, rather than silently use a device resolver.                                                                                                                                                         |
-| Unverified            | Net                    | isIP/isIPv4/isIPv6, BlockList, SocketAddress                                            | A                                                    | Address parsing and matching; confirm exact supported overloads.                                                                                                                                                                 |
-| Not implemented       | Net                    | Socket/connect/createConnection, read/write/end/destroy                                 | C                                                    | Raw outbound TCP. Needs native socket lifecycle, flow control, cancellation and error mapping.                                                                                                                                   |
-| Unverified            | Net                    | Server/listen for actual TCP listeners                                                  | S                                                    | Workers does not support net.Server. No native listener needed.                                                                                                                                                                  |
-| Not implemented       | TLS                    | connect, TLSSocket connection and I/O                                                   | C                                                    | TLS socket transport, validation and relevant connection metadata. Audit supported options before choosing native SDK APIs.                                                                                                      |
-| Unverified            | TLS                    | checkServerIdentity, certificate/context representation                                 | A candidate / U detail                               | Parsing/name checks can be JS. createSecureContext material consumed by native TLS may require C; callback shape alone does not decide.                                                                                          |
-| Unverified            | TLS                    | server creation and other documented absent APIs                                        | S                                                    | Match Workers rejection.                                                                                                                                                                                                         |
+| Implementation status | Category               | API family                                                                              | Class                                                | Boundary / remaining check                                                                                                                                                                                           |
+| --------------------- | ---------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Not implemented       | FS                     | read/write/open/close, metadata, directories, links, sync/callback/promises, FileHandle | A candidate                                          | In-memory virtual FS; inspect Workers-supported operations and error codes, file descriptor lifetime and request isolation. No device Filesystem plugin inherently required.                                         |
+| Not implemented       | FS                     | `/bundle` files                                                                         | A + build                                            | Package read-only module bytes/metadata before startup. Lazy async loading cannot transparently satisfy an immediate sync read.                                                                                      |
+| Not implemented       | FS                     | `/tmp`, `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random`                            | A                                                    | Virtual devices and secure random source. Match Workers' lifetime and permission rules; do not introduce persistence.                                                                                                |
+| Not implemented       | FS                     | watch, permissions/ownership and other host-like operations                             | U/S                                                  | Establish which operations Workers implements, ignores or rejects. Never infer mobile filesystem behavior from API names.                                                                                            |
+| **In progress**       | HTTP receiving         | Server, IncomingMessage, ServerResponse, createServer, listen/close                     | A                                                    | Fetch-handler adaptation with an in-memory server registry. No network listener.                                                                                                                                     |
+| **In progress**       | Cloudflare Node bridge | httpServerHandler, handleAsNodeRequest, connectHandler, handleAsNodeConnection          | A                                                    | HTTP dispatch passes; TCP dispatch requires a complete node:net dependency and public Server/Socket success-path contracts.                                                                                          |
+| Unverified            | HTTP/HTTPS sending     | request/get, ClientRequest, response stream, abort                                      | A over a transport                                   | Node-shaped JS facade. Browser fetch covers only permitted traffic.                                                                                                                                                  |
+| **Complete**          | HTTP/HTTPS transport   | unrestricted cross-origin responses, controlled cookies/headers, redirects              | C for required behavior unavailable to WebView fetch | Native streaming byte transports and Workers Fetch policy pass 86 checks per platform; native packed-consumer, review and CI gates passed at 13261ce. Browser fallback retains CORS restrictions.                    |
+| Not implemented       | DNS                    | resolve4/6 and other documented resolve variants, promises                              | A over DoH; C if browser transport blocks it         | Implement Workers' DNS-over-HTTPS route, subject to actual CORS/connectivity. No OS resolver is inherently necessary.                                                                                                |
+| Not implemented       | DNS                    | lookup, lookupService, generic resolve                                                  | S per current docs                                   | Preserve documented failure, rather than silently use a device resolver.                                                                                                                                             |
+| Unverified            | Net                    | isIP/isIPv4/isIPv6, BlockList, SocketAddress                                            | A                                                    | Address parsing and matching; confirm exact supported overloads.                                                                                                                                                     |
+| Not implemented       | Net                    | Socket/connect/createConnection, read/write/end/destroy                                 | C                                                    | Raw outbound TCP. Needs native socket lifecycle, flow control, cancellation and error mapping.                                                                                                                       |
+| Not implemented       | Net                    | Server/listen, accepting inbound platform sockets                                       | A                                                    | Pinned workerd registers a logical port and routes platform-provided sockets to net.Server through cloudflare:node. This is not an OS socket listener; the compatible Server/Socket path is not implemented locally. |
+| Not implemented       | TLS                    | connect, TLSSocket connection and I/O                                                   | C                                                    | TLS socket transport, validation and relevant connection metadata. Audit supported options before choosing native SDK APIs.                                                                                          |
+| Unverified            | TLS                    | checkServerIdentity, certificate/context representation                                 | A candidate / U detail                               | Parsing/name checks can be JS. createSecureContext material consumed by native TLS may require C; callback shape alone does not decide.                                                                              |
+| Unverified            | TLS                    | server creation and other documented absent APIs                                        | S                                                    | Match Workers rejection.                                                                                                                                                                                             |
 
 Sources: [FS](https://developers.cloudflare.com/workers/runtime-apis/nodejs/fs/), [HTTP](https://developers.cloudflare.com/workers/runtime-apis/nodejs/http/), [HTTPS](https://developers.cloudflare.com/workers/runtime-apis/nodejs/https/), [DNS](https://developers.cloudflare.com/workers/runtime-apis/nodejs/dns/), [Net](https://developers.cloudflare.com/workers/runtime-apis/nodejs/net/), [TLS](https://developers.cloudflare.com/workers/runtime-apis/nodejs/tls/).
 
-A native transport must also work when the handler executes in a Dedicated Worker: relay through the host with a narrowly defined MessagePort protocol if the Capacitor bridge is unavailable there. Do not pass plugin objects as cloned env bindings. Socket IDs, listener cleanup, backpressure, permission errors and runtime disposal belong to the transport contract. Neither iOS nor Android implementation is presumed complete.
+A native transport must also work when the handler executes in a Dedicated Worker: relay through the host with a narrowly defined MessagePort protocol if the Capacitor bridge is unavailable there. Do not pass plugin objects as cloned env bindings. Socket IDs, listener cleanup, backpressure, permission errors and runtime disposal belong to the transport contract. The HTTP(S) Fetch transport has passed this contract on both platforms. Raw TCP/TLS Socket transport remains unimplemented on both.
 
 ## All documented non-functional stub modules
 
@@ -231,11 +230,11 @@ Each compatibility module owns a directory under `src/compat/<module>/`, with `i
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/vite.ts`, `src/esbuild.ts`                                   | Broad browser polyfills and shared overrides. General Node compatibility is not certified. esbuild maps unavailable modules to an empty object, which is not proof of Workers stub parity. |
 | `src/build/shared.ts`                                             | Shared aliases for http, async_hooks, path, querystring, string_decoder and Cloudflare helpers. Extend this existing boundary; avoid separate Vite/esbuild truth sources.                  |
-| `src/compat/http/index.ts`, `src/compat/cloudflare-node/index.ts` | Streaming Express server adaptation with cancellation and backpressure. Full HTTP client/server/header surface remains incomplete.                                                         |
+| `src/compat/http/index.ts`, `src/compat/cloudflare-node/index.ts` | HTTP client/server export and prototype audits, streaming, headers, validation and cancellation contracts are implemented. Cloudflare TCP bridge acceptance is blocked by node:net.        |
 | `src/compat/async-hooks/index.ts`                                 | AsyncResource is undefined; ALS is not implemented.                                                                                                                                        |
-| `src/compat/globals/index.ts`                                     | Buffer/process injection exists; no complete runtime-global contract.                                                                                                                      |
+| `src/compat/globals/index.ts`                                     | Node injection, owned Web API installation, pre-evaluation, collision and cleanup contracts passed manager/independent review. Packed-consumer and CI gates passed at 13261ce.             |
 | `src/features/index.ts`, `testing.ts`                             | Existing typed definitions, implementation coverage and lifecycle test harness are reusable. A new abstract framework is unnecessary.                                                      |
-| Native document plugin                                            | Provides document rendering, not a general Node TCP/TLS/HTTP transport.                                                                                                                    |
+| Native document plugin                                            | Document rendering plus streaming HTTP(S) transport via AsyncHTTPClient/Netty. Raw Node TCP sockets are not implemented.                                                                   |
 
 ## First batch: implementation evidence and remaining work
 
@@ -248,12 +247,12 @@ Baseline: workerd **1.20261012.1**, compatibility date **2026-10-17**, no additi
 compatibility flags. The contract is shared by workerd and both local execution
 modes, rather than maintaining separate expected outputs for the browser.
 
-| Unit                                                   | Implemented and tested                                                                                                                                                                                                      | Contract groups |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| `node:path`, `path`, and both `posix`/`win32` subpaths | All exported operations, POSIX and Windows paths, UNC/namespaces, relative resolution, invalid arguments and export identity. `matchesGlob` reproduces the baseline's actual rejection.                                     | 14              |
-| `node:querystring`, `querystring`                      | All seven exports, separators, duplicate keys, limits, malformed escapes, null-prototype results, custom codecs, URI errors and BOM preservation.                                                                           | 11              |
-| `node:string_decoder`, `string_decoder`                | Constructor, `write`/`end`/`text`, all baseline encodings, `lastChar`/`lastNeed`/`lastTotal`, partial and invalid input, BOM, input windows, invalid receivers and reuse after `end`.                                       | 15              |
-| HTTP / Cloudflare Node bridge (incomplete)             | Server/port descriptors, lifecycle, streaming, asynchronous errors, dispatch context, client request/get/validation/destroy/timeout, headers and baseline stubs. Client network cases currently use a shared fetch fixture. | 18              |
+| Unit                                                   | Implemented and tested                                                                                                                                                                                                                                           | Contract groups |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `node:path`, `path`, and both `posix`/`win32` subpaths | All exported operations, POSIX and Windows paths, UNC/namespaces, relative resolution, invalid arguments and export identity. `matchesGlob` reproduces the baseline's actual rejection.                                                                          | 14              |
+| `node:querystring`, `querystring`                      | All seven exports, separators, duplicate keys, limits, malformed escapes, null-prototype results, custom codecs, URI errors and BOM preservation.                                                                                                                | 11              |
+| `node:string_decoder`, `string_decoder`                | Constructor, `write`/`end`/`text`, all baseline encodings, `lastChar`/`lastNeed`/`lastTotal`, partial and invalid input, BOM, input windows, invalid receivers and reuse after `end`.                                                                            | 15              |
+| HTTP / Cloudflare Node bridge (incomplete)             | Server/port descriptors, lifecycle, streaming, asynchronous errors, dispatch context, client request/get/validation/destroy/timeout, headers and baseline stubs. Six additional real-network groups exercise the client through native Fetch and pinned workerd. | 18              |
 
 Path and querystring adapt the pinned workerd source. StringDecoder uses a local
 UTF-8 state machine plus adapters around the npm `string_decoder` implementation
@@ -263,44 +262,39 @@ their presence.
 
 Local verification during the completion work (not whole-unit certification):
 
-- Root unit tests: 184 passed; type checking passes.
-- Pinned workerd: 58 shared Node groups; separate Headers/Request/Response contracts
-  each contain 8 groups, structuredClone 11, and Immediate 4.
-- Chromium and WebKit, direct and Dedicated Worker: 42 runtime tests and 20
-  development-startup tests passed. The five candidate Web API contracts also pass
-  both browsers and execution modes, including the structuredClone review regressions.
-- Vite/esbuild: 7 build unit tests and 30 integration tests passed.
+- Root unit tests: 217 passed; root and demo type checking passed.
+- Pinned workerd: 89 tests passed, including 58 shared Node groups, real-network
+  Fetch/HTTP comparisons, Headers/Request/Response, structuredClone, Encoding
+  and Abort. The explicit online TLS suite passed all 3 cases.
+- Chromium/WebKit: 42 runtime tests; the added Encoding/Abort cases also passed
+  in both direct and Dedicated Worker execution. Vite/esbuild passed 7 build
+  unit tests and 30 integration tests, including configured entry evaluation.
 - Packed consumer: 26 direct, 22 isolated and 144 common feature cases passed;
   Vite/esbuild/raw ESM 10 cases and configured Vite development 2 cases passed.
   Candidate internal APIs resolve from the installed tarball, not checkout sources.
-- iOS 26.1 and Android 16: each passed 256 runtime checks, with no exclusions,
-  including 116 Node groups across direct and Dedicated Worker execution. This run
-  includes the structuredClone review regressions and is built alongside the
-  native candidate plugin. It does not exercise the new outbound transport or
-  certify the missing whole-runtime network ownership.
-  Generated evidence is under
-  `demo/artifacts/node-light/`.
-- These HTTP client contracts do not establish native network compatibility.
-  Separate real loopback probes found URLSession loses duplicate cookies/raw gzip
-  and fails abort/early-response cases; OkHttp passes six of seven probes but waits
-  for upload EOF on HTTP/1. Both candidates remain incomplete.
-- An isolated AsyncHTTPClient 1.36.2 proof preserves duplicate cookies, raw gzip and
-  response headers before upload EOF on macOS and iOS 26.1. This is not yet a
-  completed transport. The current uncommitted iOS candidate now uses it behind
-  the existing NativeConnection byte contract; its seven real-network probes pass,
-  but whole-runtime ownership and release acceptance remain. A follow-up
-  iOS probe also rejects a pending body read on cancellation and rejects an untrusted
-  local TLS certificate. Full hostname/positive TLS and upload/header-wait cancellation
-  tests remain.
-- An Android 16 Netty 4.1.139.Final proof preserves the same three HTTP properties
-  and builds with minSdk 24. Netty 4.2.19.Final fails dexing at minSdk 24; 4.1 also
-  needs application packaging rules for duplicate JAR metadata. Neither version is
-  adopted as a product dependency. Build/setup cost and lifecycle acceptance remain.
-- Remote CI at `b1a58d1` passed library, compatibility, packed consumer, upstream
-  and the final CI gate. Earlier failures exposed clean-checkout type resolution
-  and an unnecessary Service Worker reload; both have regression fixes.
-  This certifies the three unchanged first-batch modules, not uncommitted HTTP,
-  globals or native-transport candidates.
+- iOS 26.1 and Android 16 each passed 280 runtime checks with no exclusions,
+  including 116 Node groups across direct and Dedicated Worker execution.
+  Generated evidence is under `demo/artifacts/node-light/`.
+- Each native platform passed 86 network checks through the public runtime:
+  streaming, redirects, headers, decompression, cancellation, runtime/Worker/page
+  teardown, Node HTTP clients and TLS trust/hostname validation. The TLS negative
+  cases reject DNS errors/timeouts as invalid evidence. Reproduce using
+  [the network acceptance runner](../demo/tests/README.md#native-outbound-http-contracts).
+- Both platforms' fresh npm-tarball consumers passed 50 Hono and 50 Express
+  checks each, including background/relaunch/update/reinitialization.
+- HTTP review corrections include strict content-length accounting, argument
+  validation, header arrays, no-Host behavior, path mutation and Agent options.
+  Node/Web global review corrections include lazy-load disposal, pre-evaluation
+  ordering and AbortSignal constructor/method ownership.
+- [Remote CI at `13261ce`](https://github.com/rdlabo-dev/capacitor-workers/actions/runs/39007518228) passed all five jobs. The earlier first-batch certification remains `b1a58d1`.
+
+Transport dependencies and cost: iOS uses AsyncHTTPClient 1.36.2 with Swift NIO;
+Android uses Netty 4.1.139.Final and requires the documented consumer Gradle
+metadata merge. Native builds require Swift 6.2/Xcode 26 and Java 21. Brotli's
+embedded decoder module is 290,193 bytes (128,819 bytes gzip) and initializes
+lazily for Brotli responses. It produces bounded output chunks; transport tests
+cover cancellation and bounded streaming. These are dependency/artifact costs,
+not claims about release application size or device startup latency.
 
 Reproduce from the repository root (after installing root and demo dependencies):
 
@@ -326,24 +320,15 @@ contract expectation, never a skipped or unsupported local case.
 The following units still require implementation; passing the first batch does
 not certify them or the entire package.
 
-- **HTTP and Cloudflare Node bridge:** complete the baseline export and prototype
-  surface, including clients, Agents, request/get, socket/connection helpers,
-  server options and remaining header/trailer behavior. The receiving adapter's
-  streaming and cleanup improvements are only part of this unit. Resolve its
-  synthesized Host/Transfer-Encoding/socket metadata against actual Workers
-  transport behavior. Unrestricted outbound traffic needs native transport.
-- **Node global injection:** unqualified injected identifiers are not enough.
-  Pre-evaluation installation, dynamic imports, import/global identity, collision
-  checks and scoped cleanup now have regression coverage. The Worker bootstrap
-  also avoids WebKit evaluating an entry twice through a dynamic-import cycle.
-  Final acceptance and the complete runtime-global surface remain outstanding.
-- **Web runtime globals:** audit each named API, Workers-specific extensions,
-  cloning/body ownership and cancellation. Browser fetch retains CORS and forbidden
-  header restrictions; an asynchronous native transport and its streaming/abort
-  contract are required for those operations. The existing document plugin and
-  buffered Capacitor HTTP calls do not establish that compatibility. Native
-  connections must be owned by a runtime and released when that runtime stops;
-  old callbacks must never reach a replacement WebView.
+- **HTTP and Cloudflare Node bridge:** the remaining dependency is the public TCP
+  success path through `node:net.Server`, including receiving Socket I/O and
+  closure. Internal registry injection is not an acceptable replacement.
+  A partial new node:net module must not be released just to pass bridge tests.
+- **Node/Web globals:** completed at `13261ce`. Module-scope Workers extensions
+  require configured/lazy loading as documented. This does not certify the
+  complete Buffer/process modules, other Workers Web APIs or other engine versions.
+- **Other module families:** their existing Unverified/Not implemented statuses
+  are unchanged; passing the current contracts does not certify those modules.
 
 ## Decisions required before implementation
 
