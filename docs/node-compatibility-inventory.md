@@ -45,16 +45,27 @@ HTTP rather than a Node-fetch proxy that would hide redirect/decompression
 behavior. Node HTTP intentionally preserves the pinned Workers behavior, including
 its joined Cookie header values and unsupported options.
 
-Local checks currently include 214 unit tests, 42 Chromium/WebKit runtime tests,
-256 runtime checks per native platform, and 80 native network checks per platform.
+Local checks currently include 216 unit tests, 42 Chromium/WebKit runtime tests,
+280 runtime checks per native platform, and 86 native network checks per platform
+(including valid TLS, untrusted certificates and hostname mismatches).
 These are candidate results, not a substitute for full coverage and final CI.
-The latest HTTP option/symbol changes passed the 256-check native suite; repeat
-the network suite and packed-consumer gate on the final accepted revision.
+Encoding and Abort contracts now run against pinned workerd and both WebViews.
+The AbortSignal timeout conversion difference is adapted without replacing native
+signal branding. Final packed-consumer verification and CI are still pending.
 The reproducible network procedure is in [the test guide](../demo/tests/README.md#native-outbound-http-contracts).
 
-Remaining acceptance work includes the complete HTTP/Cloudflare bridge audit,
-TLS trust/hostname failure coverage, final native package validation, transport
-cost evidence, and the full runtime-global API-unit audit. No **In progress** row
+Remaining acceptance work includes the Cloudflare TCP bridge success path:
+`handleAsNodeConnection`/`connectHandler` require a real `node:net.Server` to
+register a listener, but that module is not implemented. Direct registry
+injection does not satisfy this requirement. Adding only a partial net module
+would violate the completion policy. Final native package validation, transport
+cost evidence, runtime-global acceptance review and final CI also remain.
+
+Worker modules that use Workers Web API extensions at module scope must use the
+configured plugin entry (or a lazy `loadDirect` source); static imports execute
+before runtime initialization. This initialization condition is documented in
+[the README](../README.md#execution-preference) and exercised through both Vite
+and esbuild in direct and Dedicated Worker execution. No **In progress** row
 is promoted solely because the currently written tests pass.
 
 ## Classification

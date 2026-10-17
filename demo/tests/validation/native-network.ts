@@ -17,6 +17,7 @@ import {
 } from "../../../src/compat/fetch/native-network";
 import { createNetworkScope } from "../../../src/compat/fetch/scope";
 
+declare const __NETWORK_TLS__: boolean;
 type Result = { name: string; ok: boolean; error?: string };
 /** The same raw-transport cases run on iOS and Android against fixtures/network. */
 export async function runNativeNetwork(
@@ -193,6 +194,43 @@ export async function runNativeNetwork(
     }
   } finally {
     await scope?.dispose();
+  }
+  if (__NETWORK_TLS__) {
+    for (const [name, url, accepted] of [
+      ["valid", "https://sha256.badssl.com/", true],
+      ["untrusted", "https://self-signed.badssl.com/", false],
+      ["hostname", "https://wrong.host.badssl.com/", false],
+    ] as const) {
+      const signal = AbortSignal.timeout(15000);
+      const transport = new FetchTransport(
+        createNativeNetwork({ nativeCall: call }),
+      );
+      try {
+        try {
+          const response = await transport.fetch({
+            url,
+            method: "GET",
+            headers: [],
+            body: null,
+            signal,
+          });
+          await response.body?.cancel();
+          assert(accepted && response.status === 200);
+        } catch (error) {
+          if (
+            accepted ||
+            signal.aborted ||
+            !/certificate|ssl|tls|trust|handshake/i.test(
+              String(error).replace(/[a-z\d.-]+\.badssl\.com/gi, "endpoint"),
+            )
+          )
+            throw error;
+        }
+        results.push({ name: `TLS ${name}`, ok: true });
+      } catch (error) {
+        results.push({ name: `TLS ${name}`, ok: false, error: String(error) });
+      }
+    }
   }
   const NativeRequest = globalThis.Request;
   const NativeResponse = globalThis.Response;

@@ -63,7 +63,7 @@ for (const execution of ["direct", "worker"] as const) {
       { source, execution },
     );
     expect(report.map((result) => result.cases.length)).toEqual([
-      8, 8, 8, 4, 11,
+      6, 6, 8, 8, 8, 4, 11,
     ]);
     for (const result of report) {
       expect(result.errors).toEqual([]);

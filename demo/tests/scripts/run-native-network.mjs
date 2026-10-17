@@ -164,7 +164,7 @@ try {
   );
   assert.equal(
     results.length,
-    80,
+    process.env.NETWORK_TLS === "1" ? 86 : 80,
     "Unexpected native network contract coverage",
   );
   assert.deepEqual(

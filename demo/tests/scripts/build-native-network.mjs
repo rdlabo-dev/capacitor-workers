@@ -10,6 +10,9 @@ await build({
   ),
   outdir: fileURLToPath(output),
   bundle: true,
+  define: {
+    __NETWORK_TLS__: process.env.NETWORK_TLS === "1" ? "true" : "false",
+  },
   plugins: [
     capacitorWorkersPlugin({
       worker: fileURLToPath(

@@ -351,9 +351,102 @@ export const nodeHttpContract: ContractSuite<typeof nodeHttpFeature> = {
       equal(response.getRawHeaderNames(), ["X-Test"]);
       response.removeHeader("x-test");
       equal(response.hasHeader("x-test"), false);
+      const values = ["one"];
+      response.setHeader("x-shared", values);
+      values.push("two");
+      equal(response.getHeader("x-shared"), ["one", "two"]);
+      expectCode(
+        () => response.setHeaders([] as never),
+        "ERR_INVALID_ARG_TYPE",
+      );
+      const cookies = new Headers([
+        ["set-cookie", "a=1"],
+        ["set-cookie", "b=2"],
+      ]);
+      response.setHeaders(cookies);
+      equal(
+        response.getHeader("set-cookie"),
+        [...cookies]
+          .filter(([key]) => key === "set-cookie")
+          .map(([, value]) => value),
+      );
+      response.writeHead(200);
+      expectCode(() => response.setHeaders(new Map()), "ERR_HTTP_HEADERS_SENT");
       response.destroy();
+      const incoming = new IncomingMessage(null as never) as IncomingMessage & {
+        _addHeaderLines(values: string[], length: number): void;
+      };
+      incoming._addHeaderLines(
+        [
+          "User-Agent",
+          "first",
+          "User-Agent",
+          "second",
+          "Referer",
+          "first",
+          "Referer",
+          "second",
+        ],
+        8,
+      );
+      equal(
+        [incoming.headers["user-agent"], incoming.headers.referer],
+        ["first", "first"],
+      );
+      for (const chunks of [["ab"], ["a", "b"], []]) {
+        const request = new IncomingMessage(null as never);
+        request.method = "GET";
+        const strict = new ServerResponse(request);
+        strict.on("error", () => {});
+        strict.strictContentLength = true;
+        strict.setHeader("content-length", "1");
+        strict.writeHead(200);
+        expectCode(() => {
+          for (const chunk of chunks.slice(0, -1)) strict.write(chunk);
+          strict.end(chunks.at(-1));
+        }, "ERR_HTTP_CONTENT_LENGTH_MISMATCH");
+        strict.destroy();
+      }
+      for (const status of [204, 304]) {
+        const noBody = new ServerResponse(new IncomingMessage(null as never));
+        noBody.statusCode = status;
+        noBody.strictContentLength = true;
+        noBody.setHeader("content-length", "1");
+        noBody.end("ab");
+        noBody.destroy();
+      }
     },
-    agentStubs({ Agent }) {
+    async agentStubs({ Agent, createServer }) {
+      for (const maximum of [0, -1, NaN, "2", null]) {
+        await rejects(
+          () => new Agent({ maxTotalSockets: maximum as number }),
+          typeof maximum === "number"
+            ? "ERR_OUT_OF_RANGE"
+            : "ERR_INVALID_ARG_TYPE",
+        );
+      }
+      for (const maximum of [1, 1.5, Infinity])
+        equal(new Agent({ maxTotalSockets: maximum }).maxTotalSockets, maximum);
+      equal(new Agent(null as never).maxTotalSockets, Infinity);
+      equal(new Agent().getName({ port: 0 }), "localhost::");
+      const server = createServer();
+      await rejects(
+        () => server.getConnections("bad" as never),
+        "ERR_INVALID_ARG_TYPE",
+      );
+      let synchronous = true;
+      await new Promise<void>((resolve) => {
+        equal(
+          server.getConnections((error, count) => {
+            equal(synchronous, false);
+            equal(error, null);
+            equal(count, 0);
+            resolve();
+          }),
+          server,
+        );
+        synchronous = false;
+      });
       const agent = new Agent();
       equal(
         agent.getName({ host: "example.test", port: 80 }),
@@ -515,6 +608,29 @@ export const nodeHttpContract: ContractSuite<typeof nodeHttpFeature> = {
         }
         throw new Error("Expected invalid client request option");
       }
+      const strict = new ClientRequest("http://example.test", {
+        method: "POST",
+      } as never) as ClientRequest & { strictContentLength: boolean };
+      strict.on("error", () => {});
+      strict.strictContentLength = true;
+      strict.setHeader("content-length", "1");
+      strict.flushHeaders();
+      expectCode(() => strict.write("ab"), "ERR_HTTP_CONTENT_LENGTH_MISMATCH");
+      strict.destroy();
+      const implicit = new ClientRequest("http://example.test", {
+        method: "POST",
+      } as never) as ClientRequest & { strictContentLength: boolean };
+      implicit.on("error", () => {});
+      implicit.strictContentLength = true;
+      implicit.setHeader("content-length", "1");
+      implicit.write("a");
+      equal(implicit.headersSent, true);
+      expectCode(
+        () => implicit.setHeader("late", "value"),
+        "ERR_HTTP_HEADERS_SENT",
+      );
+      expectCode(() => implicit.write("b"), "ERR_HTTP_CONTENT_LENGTH_MISMATCH");
+      implicit.destroy();
       const outgoing = new ClientRequest("http://example.test/");
       outgoing.on("error", () => {});
       for (const operation of [
@@ -556,6 +672,42 @@ export const nodeHttpContract: ContractSuite<typeof nodeHttpFeature> = {
       invalid.end();
       equal((await invalidError).name, "TypeError");
       await invalidClose;
+      const mutated = new ClientRequest("http://example.test/");
+      mutated.path = "//other.test/a";
+      const pathError = new Promise<Error>((resolve) =>
+        mutated.once("error", resolve),
+      );
+      const pathClose = new Promise<void>((resolve) =>
+        mutated.once("close", resolve),
+      );
+      mutated.end();
+      equal(
+        ((await pathError) as Error & { code?: string }).code,
+        "ERR_INVALID_ARG_VALUE",
+      );
+      await pathClose;
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = (() => {
+        throw Error("Missing Host must not reach network");
+      }) as typeof fetch;
+      try {
+        const missingHost = await new Promise<IncomingMessage>(
+          (resolve, reject) => {
+            const outgoing = new ClientRequest(
+              { host: "example.test", setHost: false },
+              resolve,
+            );
+            outgoing.once("error", reject);
+            outgoing.end();
+          },
+        );
+        equal(missingHost.statusCode, 400);
+        for await (const _chunk of missingHost) {
+          /* Drain. */
+        }
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
     },
     async clientResponseTimeout({ get }) {
       const originalFetch = globalThis.fetch;

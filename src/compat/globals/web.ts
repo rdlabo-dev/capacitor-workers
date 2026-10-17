@@ -1,3 +1,4 @@
+import { installAbortTimeout } from "../abort/index.js";
 import { installResourceSymbols } from "./symbols.js";
 import { Request } from "../request/index.js";
 import { Response } from "../response/index.js";
@@ -13,7 +14,12 @@ type Patch = {
 };
 const installations = new WeakMap<
   Target,
-  { owners: number; patches: Map<Name, Patch>; restoreSymbols: () => void }
+  {
+    owners: number;
+    patches: Map<Name, Patch>;
+    restoreSymbols: () => void;
+    restoreAbort: () => void;
+  }
 >();
 function owns(target: Target, name: Name, expected: PropertyDescriptor) {
   const actual = Object.getOwnPropertyDescriptor(target, name);
@@ -38,10 +44,12 @@ export function installWebGlobals(target: Target = globalThis) {
     for (const [name, patch] of installation.patches)
       if (!owns(target, name, patch.installed))
         throw new Error(`Workers global ${name} changed during installation`);
+    installAbortTimeout(target.AbortSignal as typeof AbortSignal | undefined)();
     installation.owners++;
   } else {
     const patches = new Map<Name, Patch>();
     let restoreSymbols = () => {};
+    let restoreAbort = () => {};
     try {
       for (const name of Object.keys(values) as Name[]) {
         const previous = Object.getOwnPropertyDescriptor(target, name);
@@ -55,14 +63,18 @@ export function installWebGlobals(target: Target = globalThis) {
         Object.defineProperty(target, name, installed);
         patches.set(name, { previous, installed });
       }
+      restoreAbort = installAbortTimeout(
+        target.AbortSignal as typeof AbortSignal | undefined,
+      );
       restoreSymbols = installResourceSymbols(
         target.Symbol as SymbolConstructor | undefined,
       );
     } catch (error) {
+      restoreAbort();
       restore(target, patches);
       throw error;
     }
-    installation = { owners: 1, patches, restoreSymbols };
+    installation = { owners: 1, patches, restoreSymbols, restoreAbort };
     installations.set(target, installation);
   }
   let released = false;
@@ -73,5 +85,6 @@ export function installWebGlobals(target: Target = globalThis) {
     installations.delete(target);
     restore(target, installation.patches);
     installation.restoreSymbols();
+    installation.restoreAbort();
   };
 }

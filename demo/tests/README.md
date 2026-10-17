@@ -198,3 +198,17 @@ results. Build logs and reports are written under the consumer's
 `artifacts/network/`. Android uses `10.0.2.2:4201`; iOS uses `127.0.0.1:4201`.
 `ADB` and `ADB_SERVER_PORT` can select an alternate Android tool/server.
 The library does not start this test HTTP server.
+
+Certificate acceptance also requires the explicit online TLS suite:
+
+```sh
+npm run test:workers:tls
+NETWORK_TLS=1 npm run test:native:network -- ios <simulator-UUID>
+NETWORK_TLS=1 npm run test:native:network -- android <emulator-serial>
+```
+
+This compares the valid, self-signed and hostname-mismatch certificate endpoints
+maintained by [badssl](https://badssl.com/). The native run then requires 86 results.
+It uses public test servers and therefore needs working DNS and Internet access;
+DNS errors and timeouts are failures, not evidence that certificate validation
+worked. The ordinary 80-case loopback suite remains independent of those services.

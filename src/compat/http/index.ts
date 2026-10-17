@@ -214,6 +214,8 @@ type HeaderEntry = [string, number | string | string[]];
 export class OutgoingMessage extends Writable {
   [kHeaders]: Record<string, HeaderEntry> | null = null;
   strictContentLength = false;
+  private bytesWritten = 0;
+  private endingChunk = false;
   chunkedEncoding = false;
   sendDate = false;
   shouldKeepAlive = true;
@@ -257,25 +259,36 @@ export class OutgoingMessage extends Writable {
     this[kHeaders] ??= Object.create(null) as Record<string, HeaderEntry>;
     this[kHeaders][name.toLowerCase()] = [
       name,
-      Array.isArray(value) ? [...value] : (value as number | string),
+      value as number | string | string[],
     ];
     return this;
   }
   setHeaders(
     headers: Headers | Map<string, string | number | readonly string[]>,
   ) {
+    if (this.headersSent)
+      throw coded(
+        new Error("Cannot set headers after they are sent"),
+        "ERR_HTTP_HEADERS_SENT",
+      );
     if (
       !headers ||
+      Array.isArray(headers) ||
       typeof headers !== "object" ||
-      !(Symbol.iterator in headers)
+      typeof headers.keys !== "function" ||
+      typeof headers.get !== "function"
     )
       throw coded(
-        new TypeError(
-          'The "headers" argument must be an instance of Headers or Map.',
-        ),
+        new TypeError("headers must be Headers or Map"),
         "ERR_INVALID_ARG_TYPE",
       );
-    for (const [name, value] of headers) this.setHeader(name, value);
+    const cookies: string[] = [];
+    for (const [name, value] of headers) {
+      if (name === "set-cookie")
+        cookies.push(...((Array.isArray(value) ? value : [value]) as string[]));
+      else this.setHeader(name, value);
+    }
+    if (cookies.length) this.setHeader("set-cookie", cookies);
     return this;
   }
   appendHeader(name: string, value: OutgoingHttpHeader | readonly string[]) {
@@ -324,11 +337,59 @@ export class OutgoingMessage extends Writable {
   override uncork() {
     super.uncork();
   }
+  #checkContentLength(chunk: unknown, encoding: unknown, final: boolean) {
+    if (!this.strictContentLength || this.finished || this.destroyed) return;
+    const length =
+      typeof chunk === "string"
+        ? Buffer.byteLength(
+            chunk,
+            typeof encoding === "string"
+              ? (encoding as BufferEncoding)
+              : undefined,
+          )
+        : chunk instanceof Uint8Array
+          ? chunk.byteLength
+          : 0;
+    const total = this.bytesWritten + length;
+    const expected =
+      this._contentLength ??
+      (final && this.hasHeader("content-length")
+        ? Number(this.getHeader("content-length"))
+        : null);
+    if (
+      expected != null &&
+      this._hasBody &&
+      !this._removedContLen &&
+      !this.chunkedEncoding &&
+      !this.hasHeader("transfer-encoding") &&
+      (final ? total !== expected : total > expected)
+    )
+      throw coded(
+        new Error(
+          `Response body's content-length of ${total} byte(s) does not match the content-length of ${expected} byte(s) set in header`,
+        ),
+        "ERR_HTTP_CONTENT_LENGTH_MISMATCH",
+      );
+    this.bytesWritten = total;
+  }
   override write(
     chunk: unknown,
     encoding?: unknown,
     callback?: unknown,
   ): boolean {
+    if (chunk === null)
+      throw coded(
+        new TypeError("May not write null values to stream"),
+        "ERR_STREAM_NULL_VALUES",
+      );
+    if (typeof chunk !== "string" && !(chunk instanceof Uint8Array))
+      throw coded(
+        new TypeError("chunk must be a string, Buffer or Uint8Array"),
+        "ERR_INVALID_ARG_TYPE",
+      );
+    if (!this.endingChunk) this.#checkContentLength(chunk, encoding, false);
+    if (!this._header && !this.finished && !this.destroyed)
+      this._implicitHeader();
     return super.write(chunk as never, encoding as never, callback as never);
   }
   override destroy(error?: Error): this {
@@ -385,7 +446,20 @@ export class OutgoingMessage extends Writable {
     return destination;
   }
   override end(chunk?: unknown, encoding?: unknown, callback?: unknown): this {
-    super.end(chunk as never, encoding as never, callback as never);
+    if (
+      !this._header &&
+      this.strictContentLength &&
+      !this.finished &&
+      !this.destroyed
+    )
+      this._implicitHeader();
+    this.#checkContentLength(chunk, encoding, true);
+    this.endingChunk = true;
+    try {
+      super.end(chunk as never, encoding as never, callback as never);
+    } finally {
+      this.endingChunk = false;
+    }
     this.finished = true;
     return this;
   }
@@ -523,7 +597,26 @@ export class IncomingMessage extends Readable {
     else if (dest[key] === undefined) dest[key] = value;
     else if (
       this.joinDuplicateHeaders ||
-      !["host", "content-length", "content-type", "authorization"].includes(key)
+      ![
+        "age",
+        "authorization",
+        "content-length",
+        "content-type",
+        "etag",
+        "expires",
+        "from",
+        "host",
+        "if-modified-since",
+        "if-unmodified-since",
+        "last-modified",
+        "location",
+        "max-forwards",
+        "proxy-authorization",
+        "referer",
+        "retry-after",
+        "server",
+        "user-agent",
+      ].includes(key)
     )
       dest[key] += `, ${value}`;
   }
@@ -728,8 +821,9 @@ export class ServerResponse<
     } else if (headers)
       for (const [name, value] of Object.entries(headers))
         if (value !== undefined) this.setHeader(name, value);
-    this._hasBody =
-      this.req.method !== "HEAD" && ![204, 205, 304].includes(status);
+    if (status === 204 || status === 304) this._hasBody = false;
+    if (this.hasHeader("content-length"))
+      this._contentLength = Number(this.getHeader("content-length"));
     this._header = `HTTP/1.1 ${status} ${this.statusMessage}\r\n`;
     this.flushHeaders();
     return this;
@@ -1015,7 +1109,10 @@ export class Server extends EventEmitter {
     return this;
   }
   getConnections(callback?: (error: Error | null, count: number) => void) {
-    if (callback) queueMicrotask(() => callback(null, 0));
+    if (callback) {
+      validateType(callback, "function", "callback");
+      queueMicrotask(() => callback(null, 0));
+    }
     return this;
   }
   ref() {
@@ -1063,25 +1160,35 @@ export class Agent extends EventEmitter {
     this.defaultPort = values.defaultPort || 80;
     this.protocol = values.protocol || "http:";
     values.path = null;
-    values.proxyEnv ??= undefined;
-    (values as typeof values & { noDelay?: boolean }).noDelay ??= true;
-    this.keepAliveMsecs = options.keepAliveMsecs || 1000;
-    this.keepAlive = options.keepAlive || false;
-    this.maxSockets = options.maxSockets || Agent.defaultMaxSockets;
-    this.maxFreeSockets = options.maxFreeSockets || 256;
-    this.scheduling = options.scheduling || "lifo";
+    if (!("proxyEnv" in values)) values.proxyEnv = undefined;
+    if ((values as typeof values & { noDelay?: boolean }).noDelay === undefined)
+      (values as typeof values & { noDelay?: boolean }).noDelay = true;
+    this.keepAliveMsecs = this.options.keepAliveMsecs || 1000;
+    this.keepAlive = this.options.keepAlive || false;
+    this.maxSockets = this.options.maxSockets || Agent.defaultMaxSockets;
+    this.maxFreeSockets = this.options.maxFreeSockets || 256;
+    this.scheduling = this.options.scheduling || "lifo";
     if (!(["fifo", "lifo"] as unknown[]).includes(this.scheduling))
       throw coded(
         new TypeError("options.scheduling is invalid"),
         "ERR_INVALID_ARG_VALUE",
       );
-    this.maxTotalSockets = options.maxTotalSockets ?? Infinity;
+    const maximum = this.options.maxTotalSockets;
+    if (maximum !== undefined) {
+      validateNumber(maximum, "maxTotalSockets");
+      if (Number.isNaN(maximum) || maximum < 1)
+        throw coded(
+          new RangeError("maxTotalSockets is out of range"),
+          "ERR_OUT_OF_RANGE",
+        );
+    }
+    this.maxTotalSockets = maximum === undefined ? Infinity : maximum;
   }
   createConnection() {
     throw notImplemented("createConnection");
   }
   getName(options: RequestOptions = {}) {
-    let name = `${options.host || "localhost"}:${options.port ?? ""}:${options.localAddress ?? ""}`;
+    let name = `${options.host || "localhost"}:${options.port || ""}:${options.localAddress || ""}`;
     if (options.family === 4 || options.family === 6)
       name += `:${options.family}`;
     if (options.socketPath) name += `:${options.socketPath}`;
@@ -1284,6 +1391,8 @@ export class ClientRequest extends OutgoingMessage {
     });
   }
   override _implicitHeader() {
+    if (this.hasHeader("content-length"))
+      this._contentLength = Number(this.getHeader("content-length"));
     this._header = `${this.method} ${this.path} HTTP/1.1\r\n`;
   }
   override write(
@@ -1306,11 +1415,22 @@ export class ClientRequest extends OutgoingMessage {
     if (this.destroyed) return;
     this.sent = true;
     this.#armTimer();
-    const url = new URL(`${this.protocol}//${this.host}`);
-    url.port = this.port;
-    if (this.path !== "/")
-      ((url.pathname = new URL(this.path, url).pathname),
-        (url.search = new URL(this.path, url).search));
+    const missingHost =
+      this.host &&
+      !this.getHeader("host") &&
+      this.getHeaderNames().length === 0;
+    let url: URL | undefined;
+    if (!missingHost) {
+      if (AUTHORITY_OVERRIDE.test(this.path))
+        throw coded(
+          new TypeError("options.path must be a path-only request target"),
+          "ERR_INVALID_ARG_VALUE",
+        );
+      url = new URL(`${this.protocol}//${this.host}`);
+      url.port = this.port;
+      if (this.path.length > 0 && this.path !== "/")
+        url = new URL(this.path, url);
+    }
     const headers: [string, string][] = [];
     for (const [name, value] of Object.values(this[kHeaders] ?? {}))
       for (const item of Array.isArray(value)
@@ -1323,14 +1443,23 @@ export class ClientRequest extends OutgoingMessage {
       this.method === "GET" || this.method === "HEAD" || !this.chunks.length
         ? null
         : new Blob(this.chunks as BlobPart[]);
-    void fetch(url, {
-      method: this.method,
-      headers,
-      body,
-      signal: this.abortController.signal,
-      redirect: "manual",
-      encodeResponseBody: "manual",
-    } as RequestInit & { encodeResponseBody: "manual" }).then(
+    const response = missingHost
+      ? Promise.resolve(
+          new Response(null, {
+            status: 400,
+            statusText: "Bad Request",
+            headers: { connection: "close" },
+          }),
+        )
+      : fetch(url!, {
+          method: this.method,
+          headers,
+          body,
+          signal: this.abortController.signal,
+          redirect: "manual",
+          encodeResponseBody: "manual",
+        } as RequestInit & { encodeResponseBody: "manual" });
+    void response.then(
       (response) => {
         if (this.destroyed) {
           void response.body?.cancel();

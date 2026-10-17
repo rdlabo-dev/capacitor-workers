@@ -146,6 +146,15 @@ Explicit direct-handler imports and standard `new Worker(new URL(...), { type: "
 
 Direct imports remain supported: `import worker from "./worker"` supplies an object with `fetch` and runs in the UI global scope. Hono needs no build plugin in that mode; Workers Express still needs the compatibility plugin. Worker subrequests stay outside UI interception only when `runtime.execution` is `"worker"`; direct fallback shares the UI global environment.
 
+If the Worker or any dependency uses Workers extensions (for example
+`Headers.getAll("set-cookie")` or `Request.cf`) during module evaluation, configure
+`worker` in the Vite/esbuild plugin as shown above. The runtime installs its Web
+APIs before loading that entry and its dependencies, in both execution modes.
+With a direct static import, module evaluation happens before `capacitorWorkers()`
+can initialize those APIs; only calls made after initialization use the installed
+implementations. For plain JavaScript, use the `loadDirect` source shown above
+when initialization must precede module evaluation.
+
 ### URL contract
 
 #### How local requests are selected
@@ -321,13 +330,13 @@ The [Node.js compatibility inventory](docs/node-compatibility-inventory.md) sepa
 
 - Express request/response bodies are buffered. Streaming, file serving, compressed request bodies, WebSockets, arbitrary Node APIs and async context propagation are not guaranteed. The compatibility layer is not a general Node runtime.
 - `passThroughOnException`, WorkerEntrypoint/RPC, Service Worker format and Workers-specific Request fields are unsupported. Worker evaluation must not fetch its own local endpoints before installation.
-- CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. The Fetch-only path adds no native code beyond the generated Capacitor projects. The `render` option's native document integration ships its own packaged plugin sources (iOS SPM / Android Gradle); it is native-only and does not run in a plain browser.
+- CapacitorHttp's fetch patch is not tested; leave it disabled for this PoC. The package includes native HTTP transport and document integration sources (iOS SPM / Android Gradle). A plain browser uses browser Fetch; native document rendering requires Capacitor.
 
 ### Security and network boundaries
 
 - Client bundles are readable by users. Do not bundle server secrets or privileged backend logic. Unsupported operations do not automatically connect to cloud resources.
 
-With a direct Worker import, matching Worker subrequests can re-enter the UI handler. With Worker execution, outbound fetch uses the Dedicated Worker's own global fetch. It still follows WebView networking/CORS policies; this is not a workerd isolate or a CORS bypass.
+With a direct Worker import, matching Worker subrequests can re-enter the UI handler. In Capacitor, outbound HTTP(S) uses the packaged native transport, including when relayed from a Dedicated Worker. This transport handles headers, redirects and response bytes outside browser CORS enforcement. In a plain browser, outbound requests use browser Fetch and remain subject to its CORS and header restrictions. Neither execution mode is a workerd isolate.
 
 ### Worker transport and resource lifetime
 

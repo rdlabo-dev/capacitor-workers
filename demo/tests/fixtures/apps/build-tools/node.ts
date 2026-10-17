@@ -19,6 +19,7 @@ async function run(prefer: ExecutionPreference) {
       execution: runtime.execution,
       contracts: payload.contracts,
       globals: payload.globals,
+      webGlobals: payload.webGlobals,
     };
   } finally {
     runtime.dispose();

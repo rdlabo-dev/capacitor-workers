@@ -1,3 +1,11 @@
+import {
+  EncodingImplementation,
+  encodingContract,
+} from "../../../src/compat/encoding/index.spec";
+import {
+  AbortImplementation,
+  abortContract,
+} from "../../../src/compat/abort/index.spec";
 import { runContract } from "@rdlabo/capacitor-workers/testing";
 import {
   HeadersImplementation,
@@ -27,6 +35,8 @@ import {
 
 export function runWebApiContracts() {
   return Promise.all([
+    runContract(new EncodingImplementation(), encodingContract),
+    runContract(new AbortImplementation(), abortContract),
     runContract(new HeadersImplementation(Headers), headersContract),
     runContract(new RequestImplementation(Request), requestContract),
     runContract(new ResponseImplementation(Response), responseContract),

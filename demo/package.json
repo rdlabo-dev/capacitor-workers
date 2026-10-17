@@ -31,7 +31,8 @@
     "test:upstream:browser": "vite build --config tests/upstream/hono-jsx-ssr/browser/vite.config.ts && playwright test --config tests/playwright.upstream.config.ts",
     "build:native-network": "node tests/scripts/build-native-network.mjs",
     "test:native:network:server": "node tests/scripts/network-server.mjs",
-    "test:native:network": "node tests/scripts/run-native-network.mjs"
+    "test:native:network": "node tests/scripts/run-native-network.mjs",
+    "test:workers:tls": "vitest run --config tests/vitest.tls.config.ts"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.3",

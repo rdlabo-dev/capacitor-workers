@@ -110,6 +110,7 @@ export async function handleAsNodeRequest(
     highWaterMark: server.highWaterMark,
     rejectNonStandardBodyWrites: server.rejectNonStandardBodyWrites,
   });
+  if (request.method === "HEAD") res._hasBody = false;
   return new Promise<Response>((resolve, reject) => {
     res.once("error", reject);
     req.once("error", (error) => {

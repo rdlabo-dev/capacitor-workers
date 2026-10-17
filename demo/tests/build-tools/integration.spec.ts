@@ -81,6 +81,14 @@ for (const build of ["vite-node", "esbuild-node"]) {
       expect(report.globals.computed).toEqual([true, true, true]);
       expect(report.globals.dynamic).toEqual(Array(5).fill(true));
       expect(report.globals.processEnv).toEqual({});
+      expect(report.webGlobals).toEqual(
+        Object.fromEntries(
+          ["entry", "static", "dynamic"].map((name) => [
+            name,
+            [[`${name}=1`], { marker: name }],
+          ]),
+        ),
+      );
       expect(report.cleanup).toBe(true);
     });
   }
